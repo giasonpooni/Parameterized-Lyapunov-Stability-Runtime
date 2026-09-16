@@ -1,0 +1,19 @@
+[workspace]
+
+[package]
+name = "discrete-morphisms-sp1-program"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+# Bound when you have the SP1 toolchain:
+#   cargo prove build
+# Do not add this crate to the library workspace. CI must stay green
+# without cargo-prove.
+# sp1-zkvm = "5"
+
+[features]
+default = []
+zkvm = []
