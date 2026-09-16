@@ -4,6 +4,7 @@ This package owns certificate structure ``V``. Linearization
 ``A = J_f(x*)`` is an input, formed in JSPT or supplied by the caller.
 """
 
+from .benchmarks import CaseResult, run_suite
 from .certificates import (
     AffineCertificate,
     QuadraticCertificate,
@@ -37,6 +38,7 @@ __all__ = [
     "AffineCertificate",
     "AffinePlant",
     "CertificateSample",
+    "CaseResult",
     "CheckResult",
     "LinearChart",
     "LinearPlant",
@@ -61,6 +63,7 @@ __all__ = [
     "push_plant",
     "quadratic",
     "reference_catalogue",
+    "run_suite",
     "solve_lyapunov",
     "spectral_abscissa",
     "spectral_radius",
