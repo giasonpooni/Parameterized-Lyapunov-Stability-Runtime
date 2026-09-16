@@ -1,9 +1,6 @@
 """Host callback for discrete-guest statements.
 
-VERIFIED is allowed only when a bound host set
-``verified_by_bound_host`` after ``client.verify``.
-Opaque bytes are still NOT_CHECKED.
-``may_authorize`` is always false.
+VERIFIED only when a bound host set verified_by_bound_host after client.verify.
 """
 
 from __future__ import annotations
@@ -78,10 +75,7 @@ def public_values(statement: GuestStatement) -> dict[str, Any]:
     }
 
 
-def attach(
-    statement: GuestStatement,
-    receipt: Receipt | None = None,
-) -> CallbackResult:
+def attach(statement: GuestStatement, receipt: Receipt | None = None) -> CallbackResult:
     available = cargo_prove_available()
     if receipt is None:
         return CallbackResult(
@@ -122,18 +116,17 @@ def attach(
         backend="sp1",
         cargo_prove_available=available,
         receipt=receipt,
-        notes=(
-            "Proof bytes present but verified_by_bound_host is false. "
-            "Status stays NOT_CHECKED rather than trusting the label."
-        ),
+        notes="Proof bytes present but verified_by_bound_host is false.",
     )
 
 
 def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str, Any]:
     from .discrete_guest import (
         FIXTURE_DECREASE,
+        FIXTURE_DEVELOPABLE,
         FIXTURE_JACOBI,
         FIXTURE_V_PUSH,
+        run_developable_star,
         run_discrete_decrease,
         run_jacobi_steps,
         run_v_push,
@@ -143,11 +136,9 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         run_v_push(**FIXTURE_V_PUSH),
         run_discrete_decrease(**FIXTURE_DECREASE),
         run_jacobi_steps(**FIXTURE_JACOBI),
+        run_developable_star(**FIXTURE_DEVELOPABLE),
     )
-    attached = []
-    for stmt in statements:
-        rec = None if receipts is None else receipts.get(stmt.statement_id)
-        attached.append(attach(stmt, rec).to_dict())
+    attached = [attach(stmt, None if receipts is None else receipts.get(stmt.statement_id)).to_dict() for stmt in statements]
     return {
         "confirmed_out_of_development": False,
         "claim_scope": CLAIM_SCOPE,
@@ -155,16 +146,8 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         "may_authorize": False,
         "cargo_prove_available": cargo_prove_available(),
         "guest_manifest": str(
-            Path(__file__).resolve().parents[2]
-            / "guests"
-            / "discrete-morphisms-v1"
-            / "sp1-program"
-            / "README.md"
+            Path(__file__).resolve().parents[2] / "guests" / "discrete-morphisms-v1" / "sp1-program" / "README.md"
         ),
         "callbacks": attached,
-        "notes": (
-            "Host callback attached. cargo prove build the SP1 program, "
-            "then SP1_PROVER=cpu cargo run --release -- --prove in sp1-host. "
-            "Execute is not a proof. may_authorize stays false."
-        ),
+        "notes": "Four integer statements. Execute is not a proof. may_authorize stays false.",
     }
