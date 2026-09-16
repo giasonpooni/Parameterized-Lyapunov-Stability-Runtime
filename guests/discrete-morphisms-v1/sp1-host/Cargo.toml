@@ -1,0 +1,18 @@
+[workspace]
+
+[package]
+name = "discrete-morphisms-sp1-host"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+sp1-sdk = "6.8.0"
+serde_json = "1"
+hex = "0.4"
+bincode = "1"
+clap = { version = "4", features = ["derive"] }
+
+[build-dependencies]
+sp1-build = "6.8.0"

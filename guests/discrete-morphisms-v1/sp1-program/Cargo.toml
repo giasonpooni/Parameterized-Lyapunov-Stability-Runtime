@@ -8,12 +8,5 @@ license = "MIT"
 publish = false
 
 [dependencies]
-# Bound when you have the SP1 toolchain:
-#   cargo prove build
-# Do not add this crate to the library workspace. CI must stay green
-# without cargo-prove.
-# sp1-zkvm = "5"
-
-[features]
-default = []
-zkvm = []
+sp1-zkvm = "6.8.0"
+discrete-morphisms-v1 = { path = ".." }
