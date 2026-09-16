@@ -22,6 +22,25 @@ The central question is:
 > the declared samples, and does that scalar claim survive a linear
 > change of coordinates?
 
+## Map
+
+```mermaid
+flowchart LR
+  JSPT["JSPT owns A = J"] --> A["A as numbers"]
+  A --> V["V = x^T P x"]
+  V --> Dec{"decrease holds?"}
+  Dec -->|yes| Sample["certificate sample"]
+  Dec -->|no / not PD| Refuse["refuse · no clip"]
+  Sample --> Chart["chart push by solves"]
+  Chart --> Guest["i64 guest satellite"]
+  Guest --> Host["host callback"]
+  Host --> NC["NOT_CHECKED until bound verify"]
+```
+
+Caption: `A` is an input. Spectrum is a diagnostic. The guest does not
+authorize. Figure: [results/discrete_guest_fixture.svg](results/discrete_guest_fixture.svg).
+See [docs/FIGURES.md](docs/FIGURES.md).
+
 ## What is in the first slice
 
 | Responsibility | What the runtime demonstrates |
@@ -46,6 +65,7 @@ git clone https://github.com/giasonpooni/Parameterized-Lyapunov-Stability-Runtim
 cd Parameterized-Lyapunov-Stability-Runtime
 uv run --python 3.13 python examples/quickstart.py
 uv run --python 3.13 python examples/cross_reference.py
+uv run --python 3.13 python examples/write_figures.py
 uv run --python 3.13 --with pytest pytest -q
 ```
 
