@@ -1,14 +1,8 @@
 """Host callback for discrete-guest statements.
 
-The kernel lives in ``discrete_guest``. This module only:
-
-- packages public values
-- accepts an optional receipt
-- refuses a digest mismatch
-- stays ``NOT_CHECKED`` unless a named backend actually verifies
-
-SP1 is optional. Missing ``cargo-prove`` is not a pass.
-Claim scope remains ``computational-integrity-only``.
+VERIFIED is allowed only when a bound host set
+``verified_by_bound_host`` after ``client.verify``.
+Opaque bytes are still NOT_CHECKED.
 ``may_authorize`` is always false.
 """
 
@@ -27,13 +21,12 @@ Backend = Literal["none", "sp1"]
 
 @dataclass(frozen=True)
 class Receipt:
-    """What a prover backend must hand back. Bytes are opaque to PLSR."""
-
     statement_digest: str
     claim_scope: str
     backend: Backend
     verifying_key_digest: str | None
     proof_bytes_hex: str | None
+    verified_by_bound_host: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -42,6 +35,7 @@ class Receipt:
             "backend": self.backend,
             "verifying_key_digest": self.verifying_key_digest,
             "proof_bytes_hex": self.proof_bytes_hex,
+            "verified_by_bound_host": self.verified_by_bound_host,
         }
 
 
@@ -73,7 +67,6 @@ def cargo_prove_available() -> bool:
 
 
 def public_values(statement: GuestStatement) -> dict[str, Any]:
-    """Values a guest must commit. Not a proof."""
     body = statement.to_dict()
     return {
         "statement_id": body["statement_id"],
@@ -89,13 +82,6 @@ def attach(
     statement: GuestStatement,
     receipt: Receipt | None = None,
 ) -> CallbackResult:
-    """Attach a host callback to an already-evaluated statement.
-
-    Without a receipt the status is NOT_CHECKED.
-    A receipt with the wrong digest or the wrong scope is refused.
-    A receipt that names backend ``sp1`` but carries no proof bytes is
-    NOT_CHECKED. Opaque bytes without a bound verifier stay NOT_CHECKED.
-    """
     available = cargo_prove_available()
     if receipt is None:
         return CallbackResult(
@@ -121,6 +107,15 @@ def attach(
             receipt=receipt,
             notes="SP1 named but proof bytes or vk digest missing. Not verified.",
         )
+    if receipt.verified_by_bound_host:
+        return CallbackResult(
+            statement=statement,
+            proof_status="VERIFIED",
+            backend="sp1",
+            cargo_prove_available=available,
+            receipt=receipt,
+            notes="Bound host reported client.verify success. Still not an authorization.",
+        )
     return CallbackResult(
         statement=statement,
         proof_status="NOT_CHECKED",
@@ -128,7 +123,7 @@ def attach(
         cargo_prove_available=available,
         receipt=receipt,
         notes=(
-            "Proof bytes present but this host has no SP1 verifier bound. "
+            "Proof bytes present but verified_by_bound_host is false. "
             "Status stays NOT_CHECKED rather than trusting the label."
         ),
     )
@@ -168,8 +163,8 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         ),
         "callbacks": attached,
         "notes": (
-            "Host callback attached. Compile guests/discrete-morphisms-v1/"
-            "sp1-program with cargo prove to mint a receipt. Until a bound "
-            "verifier accepts that receipt, status is NOT_CHECKED."
+            "Host callback attached. cargo prove build the SP1 program, "
+            "then SP1_PROVER=cpu cargo run --release -- --prove in sp1-host. "
+            "Execute is not a proof. may_authorize stays false."
         ),
     }
