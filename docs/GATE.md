@@ -25,9 +25,11 @@ No backend may expose those identities as kwargs that change the law.
 
 A scaled-integer satellite exists: `lyapunov.discrete_guest` and
 `guests/discrete-morphisms-v1`. It seals three discrete identities in
-`i64` under `i64-unimodular-v1`. It is not a PyO3 gate, not CUDA, and
-not an SP1 dependency. `proof_status` stays `NOT_CHECKED` until a host
-callback attaches a receipt. Do not import the guest into `gat`.
+`i64` under `i64-unimodular-v1`. The host callback is `lyapunov.host_callback.attach`.
+SP1 guest source lives in `guests/discrete-morphisms-v1/sp1-program`
+and is not a CI dependency. Missing cargo-prove or opaque proof bytes
+keep `proof_status=NOT_CHECKED`. Do not import into `gat`. Do not
+report VERIFIED without a bound verifier.
 
 ## Refusal
 

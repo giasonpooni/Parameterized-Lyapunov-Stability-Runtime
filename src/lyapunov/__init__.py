@@ -41,6 +41,7 @@ from .discrete_guest import (
     run_jacobi_steps,
     run_v_push,
 )
+from .host_callback import CallbackResult, Receipt, attach, attach_fixture_suite, public_values
 from .runtime import CertificateSample, Verdict, evaluate, verdict
 
 __all__ = [
@@ -67,9 +68,14 @@ __all__ = [
     "constant_plant",
     "decrease_matrix",
     "evaluate",
+    "CallbackResult",
     "GUEST_CLAIM_SCOPE",
     "GuestRefuse",
     "GuestStatement",
+    "Receipt",
+    "attach",
+    "attach_fixture_suite",
+    "public_values",
     "run_discrete_decrease",
     "run_fixture_suite",
     "run_jacobi_steps",

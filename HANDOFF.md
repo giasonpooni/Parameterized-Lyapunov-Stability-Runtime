@@ -18,7 +18,8 @@ packages and does not absorb their domains.
 - No local condition-number cap. Singular T is refused by a failed
   solve. No nearest-PSD repair of P.
 - Discrete guest satellite: `V-push-v1`, `discrete-decrease-v1`,
-  `jacobi-step-v1` as exact i64 maps. SP1 not attached.
+  `jacobi-step-v1` as exact i64 maps. Host callback attached;
+  SP1 prover not bound. Status `NOT_CHECKED`.
 - Reference plants: Hurwitz pair, unstable pair (solve must refuse),
   discrete contraction, two-vertex affine coupling LPV.
 - Cross-reference runner against JSPT published matrices
@@ -33,7 +34,7 @@ In development. `results/cross_reference.json` records
 ## Not delivered
 
 - SOS / polynomial V, SDP synthesis of P, CLF-to-u, hybrid certificates,
-  SP1 receipt, CUDA, JSPT import, PLC/SCADA, BIM kernels.
+  bound SP1 verifier / receipt, CUDA, JSPT import, PLC/SCADA, BIM kernels.
 
 ## Run
 
@@ -41,5 +42,6 @@ In development. `results/cross_reference.json` records
 uv run --python 3.13 python examples/quickstart.py
 uv run --python 3.13 python examples/cross_reference.py
 uv run --python 3.13 python examples/discrete_guest.py
+uv run --python 3.13 python examples/host_callback.py
 uv run --python 3.13 --dev pytest
 ```
