@@ -30,6 +30,8 @@ jobs:
           version: "0.10.10"
       - name: Run quickstart
         run: uv run --python ${{ matrix.python }} python examples/quickstart.py
+      - name: Run cross-reference benchmarks
+        run: uv run --python ${{ matrix.python }} python examples/cross_reference.py
       - name: Build package
         run: uv build --python ${{ matrix.python }}
       - name: Run default suite
