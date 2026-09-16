@@ -15,11 +15,12 @@ class HostCallbackTests(unittest.TestCase):
         self.assertEqual(result.proof_status, "NOT_CHECKED")
         self.assertFalse(result.to_dict()["may_authorize"])
 
-    def test_public_values_carry_digest_and_scope(self) -> None:
+    def test_public_values_are_id_held_digest(self) -> None:
         stmt = run_v_push(**FIXTURE_V_PUSH)
         pv = public_values(stmt)
-        self.assertEqual(pv["claim_scope"], CLAIM_SCOPE)
+        self.assertEqual(set(pv), {"statement_id", "held", "statement_digest"})
         self.assertEqual(pv["statement_digest"], stmt.digest())
+        self.assertTrue(pv["held"])
 
     def test_mismatched_digest_refused(self) -> None:
         stmt = run_v_push(**FIXTURE_V_PUSH)
@@ -74,6 +75,7 @@ class HostCallbackTests(unittest.TestCase):
         body = attach_fixture_suite()
         self.assertFalse(body["confirmed_out_of_development"])
         self.assertEqual(body["proof_status"], "NOT_CHECKED")
+        self.assertEqual(body["callbacks"][-1]["public_commit"]["statement_id"], "developable-defect-v1")
 
 
 if __name__ == "__main__":
