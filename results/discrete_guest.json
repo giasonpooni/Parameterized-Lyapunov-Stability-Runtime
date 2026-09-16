@@ -1,0 +1,53 @@
+{
+  "confirmed_out_of_development": false,
+  "claim_scope": "computational-integrity-only",
+  "proof_backend": "none",
+  "proof_status": "NOT_CHECKED",
+  "may_authorize": false,
+  "numeric_contract": "i64-unimodular-v1",
+  "statements": [
+    {
+      "statement_id": "V-push-v1",
+      "numeric_contract": "i64-unimodular-v1",
+      "claim_scope": "computational-integrity-only",
+      "inputs": {"P": [[2, 0], [0, 3]], "T": [[2, 1], [1, 1]], "x": [1, 2], "det_T": 1},
+      "outputs": {"P_prime": [[5, -8], [-8, 14]], "x_prime": [4, 3], "V": 14, "V_prime": 14},
+      "held": true,
+      "proof_status": "NOT_CHECKED",
+      "host_oracle_gap": 0.0,
+      "notes": "Unimodular chart push of P. SP1 prover not attached.",
+      "statement_digest": "c463943818289c4ef5f17fe35a573daa19701f1e44bb095a9f452bdf7dcbe6da",
+      "may_authorize": false,
+      "traceable": false
+    },
+    {
+      "statement_id": "discrete-decrease-v1",
+      "numeric_contract": "i64-unimodular-v1",
+      "claim_scope": "computational-integrity-only",
+      "inputs": {"A": [[0, 1], [0, 0]], "P": [[1, 0], [0, 1]], "x": [2, 3]},
+      "outputs": {"decrease_form": [[-1, 0], [0, 0]], "delta_V": -4},
+      "held": true,
+      "proof_status": "NOT_CHECKED",
+      "host_oracle_gap": 0.0,
+      "notes": "Discrete decrease at one sample. P is an input. No Lyapunov solve in the guest.",
+      "statement_digest": "ae4f27ef7dfaae5b6c0b86de34c4fb65cafbddb308a472a76725e90c6ec5e4fe",
+      "may_authorize": false,
+      "traceable": false
+    },
+    {
+      "statement_id": "jacobi-step-v1",
+      "numeric_contract": "i64-unimodular-v1",
+      "claim_scope": "computational-integrity-only",
+      "inputs": {"j0": 0, "j1": 1, "K": 0, "h2": 1, "steps": 4},
+      "outputs": {"trace": [0, 1, 2, 3, 4, 5], "j_final": 5},
+      "held": true,
+      "proof_status": "NOT_CHECKED",
+      "host_oracle_gap": 0.0,
+      "notes": "Discrete Jacobi recurrence. Owner is the geodesic companion; PLSR only hosts the integer twin.",
+      "statement_digest": "1253a383c81fe2f144dfbf4b8a66de777aa1eb001b0c32bd7a2580331b34f8f3",
+      "may_authorize": false,
+      "traceable": false
+    }
+  ],
+  "notes": "Integer twins of declared discrete maps. Attach SP1 only as a host callback over this contract. Do not import this module into gat."
+}
