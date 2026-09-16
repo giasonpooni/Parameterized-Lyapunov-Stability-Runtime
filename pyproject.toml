@@ -1,0 +1,23 @@
+[project]
+name = "parameterized-lyapunov-stability-runtime"
+version = "0.1.0"
+description = "A computational runtime for evaluating quadratic Lyapunov certificates on declared linear and affine-parameter plants."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lyapunov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
