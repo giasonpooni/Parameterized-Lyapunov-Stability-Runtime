@@ -13,3 +13,6 @@ Maintain the Parameterized Lyapunov Stability Runtime as one project on `main`.
   plants. Do not imply SOS, SDP synthesis, CLF control, CUDA, or a Jacobian helper
   until those exist and are tested.
 - A is an input. Do not form J_f(x*) here. Do not copy JSPT's condition-number cap.
+- Stay in development until HANDOFF records otherwise. Regenerate
+  `results/cross_reference.*` from `examples/cross_reference.py`.
+  Do not hand-edit those numbers.

@@ -19,6 +19,14 @@ packages and does not absorb their domains.
   solve. No nearest-PSD repair of P.
 - Reference plants: Hurwitz pair, unstable pair (solve must refuse),
   discrete contraction, two-vertex affine coupling LPV.
+- Cross-reference runner against JSPT published matrices
+  (`examples/cross_reference.py`). Refusals are recorded outcomes.
+
+## Development status
+
+In development. `results/cross_reference.json` records
+`confirmed_out_of_development: false`. Do not treat a green pytest
+or a written results file as a release.
 
 ## Not delivered
 
@@ -29,5 +37,6 @@ packages and does not absorb their domains.
 
 ```
 uv run --python 3.13 python examples/quickstart.py
+uv run --python 3.13 python examples/cross_reference.py
 uv run --python 3.13 --dev pytest
 ```
