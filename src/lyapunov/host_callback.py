@@ -48,6 +48,7 @@ class CallbackResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "statement": self.statement.to_dict(),
+            "public_commit": self.statement.public_commit(),
             "proof_status": self.proof_status,
             "backend": self.backend,
             "cargo_prove_available": self.cargo_prove_available,
@@ -64,15 +65,8 @@ def cargo_prove_available() -> bool:
 
 
 def public_values(statement: GuestStatement) -> dict[str, Any]:
-    body = statement.to_dict()
-    return {
-        "statement_id": body["statement_id"],
-        "numeric_contract": body["numeric_contract"],
-        "claim_scope": body["claim_scope"],
-        "statement_digest": body["statement_digest"],
-        "held": body["held"],
-        "outputs": body["outputs"],
-    }
+    """Guest-facing public tuple: id, held, digest."""
+    return statement.public_commit()
 
 
 def attach(statement: GuestStatement, receipt: Receipt | None = None) -> CallbackResult:
@@ -123,10 +117,10 @@ def attach(statement: GuestStatement, receipt: Receipt | None = None) -> Callbac
 def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str, Any]:
     from .discrete_guest import (
         FIXTURE_DECREASE,
-        FIXTURE_DEVELOPABLE,
+        FIXTURE_DEFECT,
         FIXTURE_JACOBI,
         FIXTURE_V_PUSH,
-        run_developable_star,
+        run_developable_defect,
         run_discrete_decrease,
         run_jacobi_steps,
         run_v_push,
@@ -136,9 +130,12 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         run_v_push(**FIXTURE_V_PUSH),
         run_discrete_decrease(**FIXTURE_DECREASE),
         run_jacobi_steps(**FIXTURE_JACOBI),
-        run_developable_star(**FIXTURE_DEVELOPABLE),
+        run_developable_defect(**FIXTURE_DEFECT),
     )
-    attached = [attach(stmt, None if receipts is None else receipts.get(stmt.statement_id)).to_dict() for stmt in statements]
+    attached = [
+        attach(stmt, None if receipts is None else receipts.get(stmt.statement_id)).to_dict()
+        for stmt in statements
+    ]
     return {
         "confirmed_out_of_development": False,
         "claim_scope": CLAIM_SCOPE,
@@ -146,8 +143,12 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         "may_authorize": False,
         "cargo_prove_available": cargo_prove_available(),
         "guest_manifest": str(
-            Path(__file__).resolve().parents[2] / "guests" / "discrete-morphisms-v1" / "sp1-program" / "README.md"
+            Path(__file__).resolve().parents[2]
+            / "guests"
+            / "discrete-morphisms-v1"
+            / "sp1-program"
+            / "README.md"
         ),
         "callbacks": attached,
-        "notes": "Four integer statements. Execute is not a proof. may_authorize stays false.",
+        "notes": "Four integer statements. Public commit is id/held/digest. may_authorize stays false.",
     }
