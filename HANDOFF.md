@@ -17,6 +17,8 @@ packages and does not absorb their domains.
   and models are refused.
 - No local condition-number cap. Singular T is refused by a failed
   solve. No nearest-PSD repair of P.
+- Discrete guest satellite: `V-push-v1`, `discrete-decrease-v1`,
+  `jacobi-step-v1` as exact i64 maps. SP1 not attached.
 - Reference plants: Hurwitz pair, unstable pair (solve must refuse),
   discrete contraction, two-vertex affine coupling LPV.
 - Cross-reference runner against JSPT published matrices
@@ -26,17 +28,18 @@ packages and does not absorb their domains.
 
 In development. `results/cross_reference.json` records
 `confirmed_out_of_development: false`. Do not treat a green pytest
-or a written results file as a release.
+  or a written results file as a release.
 
 ## Not delivered
 
 - SOS / polynomial V, SDP synthesis of P, CLF-to-u, hybrid certificates,
-  Rust / CUDA gate, JSPT import, PLC/SCADA, BIM kernels.
+  SP1 receipt, CUDA, JSPT import, PLC/SCADA, BIM kernels.
 
 ## Run
 
 ```
 uv run --python 3.13 python examples/quickstart.py
 uv run --python 3.13 python examples/cross_reference.py
+uv run --python 3.13 python examples/discrete_guest.py
 uv run --python 3.13 --dev pytest
 ```

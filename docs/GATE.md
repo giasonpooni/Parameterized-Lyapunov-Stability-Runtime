@@ -23,8 +23,11 @@ No backend may expose those identities as kwargs that change the law.
 
 ## Binding slice
 
-Not opened. Do not add a PyO3 crate, a Julia wrapper, or a GPU kernel
-until the NumPy identities above have tests and a handoff.
+A scaled-integer satellite exists: `lyapunov.discrete_guest` and
+`guests/discrete-morphisms-v1`. It seals three discrete identities in
+`i64` under `i64-unimodular-v1`. It is not a PyO3 gate, not CUDA, and
+not an SP1 dependency. `proof_status` stays `NOT_CHECKED` until a host
+callback attaches a receipt. Do not import the guest into `gat`.
 
 ## Refusal
 
