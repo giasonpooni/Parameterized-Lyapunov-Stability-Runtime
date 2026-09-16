@@ -32,6 +32,15 @@ from .plants import (
     plant_from_jacobian,
 )
 from .reference_plants import reference_catalogue
+from .discrete_guest import (
+    CLAIM_SCOPE as GUEST_CLAIM_SCOPE,
+    GuestRefuse,
+    GuestStatement,
+    run_discrete_decrease,
+    run_fixture_suite,
+    run_jacobi_steps,
+    run_v_push,
+)
 from .runtime import CertificateSample, Verdict, evaluate, verdict
 
 __all__ = [
@@ -58,6 +67,13 @@ __all__ = [
     "constant_plant",
     "decrease_matrix",
     "evaluate",
+    "GUEST_CLAIM_SCOPE",
+    "GuestRefuse",
+    "GuestStatement",
+    "run_discrete_decrease",
+    "run_fixture_suite",
+    "run_jacobi_steps",
+    "run_v_push",
     "plant_from_jacobian",
     "push_certificate",
     "push_plant",
