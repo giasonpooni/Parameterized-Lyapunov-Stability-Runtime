@@ -1,16 +1,7 @@
 """Scaled-integer discrete morphisms for a later zkVM guest.
 
-This module is a satellite. NumPy PLSR remains the float64 oracle.
-The guest arithmetic is exact i64 on a named numeric contract.
-
-Statement ids
-    V-push-v1              V(x) = V'(Tx) after unimodular integer T
-    discrete-decrease-v1   x^T (A^T P A - P) x at one sample
-    jacobi-step-v1         three-term recurrence, K in {0, 1, -1}
-
-Claim scope is always ``computational-integrity-only``.
-A missing SP1 / RISC-V prover is ``NOT_CHECKED``, not a pass.
-T that is not unimodular is refused. No clip, no nearest-PSD.
+Satellite. NumPy PLSR remains the float64 oracle.
+Claim scope is always computational-integrity-only.
 """
 
 from __future__ import annotations
@@ -24,7 +15,9 @@ CLAIM_SCOPE = "computational-integrity-only"
 STATEMENT_V_PUSH = "V-push-v1"
 STATEMENT_DECREASE = "discrete-decrease-v1"
 STATEMENT_JACOBI = "jacobi-step-v1"
+STATEMENT_DEVELOPABLE = "developable-star-v1"
 NUMERIC_CONTRACT = "i64-unimodular-v1"
+NUMERIC_CONTRACT_STAR = "i64-coplanar-star-v1"
 
 
 class GuestRefuse(ValueError):
@@ -52,6 +45,32 @@ def _vec2(values: list[int], name: str) -> tuple[int, int]:
     if len(values) != 2:
         raise GuestRefuse(f"{name} must have length 2")
     return _as_i64(values[0], f"{name}[0]"), _as_i64(values[1], f"{name}[1]")
+
+
+def _vec3(values: list[int], name: str) -> tuple[int, int, int]:
+    if len(values) != 3:
+        raise GuestRefuse(f"{name} must have length 3")
+    return (
+        _as_i64(values[0], f"{name}[0]"),
+        _as_i64(values[1], f"{name}[1]"),
+        _as_i64(values[2], f"{name}[2]"),
+    )
+
+
+def _sub(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
+    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+
+def _dot(a: tuple[int, int, int], b: tuple[int, int, int]) -> int:
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _cross(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
 
 
 def _require_symmetric(P: tuple[tuple[int, int], tuple[int, int]], name: str = "P") -> None:
@@ -97,7 +116,6 @@ def push_P(
     P: tuple[tuple[int, int], tuple[int, int]],
     T: tuple[tuple[int, int], tuple[int, int]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
-    """P' = T^{-T} P T^{-1} with T unimodular, exact i64."""
     Tinv = inv_unimodular(T)
     return mul2(transpose(Tinv), mul2(P, Tinv))
 
@@ -106,7 +124,6 @@ def discrete_decrease_form(
     A: tuple[tuple[int, int], tuple[int, int]],
     P: tuple[tuple[int, int], tuple[int, int]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
-    """A^T P A - P."""
     AtP = mul2(transpose(A), P)
     return (
         (
@@ -121,7 +138,6 @@ def discrete_decrease_form(
 
 
 def jacobi_step(j_prev: int, j: int, k: int, h2: int) -> int:
-    """j_{n+1} = 2 j_n - j_{n-1} - h2 * K * j_n, K in {0,1,-1}."""
     if k not in (0, 1, -1):
         raise GuestRefuse("K must be 0, 1, or -1")
     h2 = _as_i64(h2, "h2")
@@ -138,6 +154,27 @@ def jacobi_trace(j0: int, j1: int, k: int, h2: int, steps: int) -> list[int]:
         out.append(nxt)
         prev, cur = cur, nxt
     return out
+
+
+def coplanar_star(
+    vertex: tuple[int, int, int],
+    neighbors: tuple[tuple[int, int, int], ...],
+) -> tuple[bool, tuple[int, int, int], list[int]]:
+    """held iff every neighbor after the first two lies in span(e0, e1).
+
+    Coplanar star is sufficient for discrete K=0 at the vertex.
+    It is not necessary (a saddle can have defect 0). Named honestly.
+    """
+    if len(neighbors) < 3 or len(neighbors) > 8:
+        raise GuestRefuse("star must have 3..8 neighbors")
+    e0 = _sub(neighbors[0], vertex)
+    e1 = _sub(neighbors[1], vertex)
+    normal = _cross(e0, e1)
+    if normal == (0, 0, 0):
+        raise GuestRefuse("first two edges are collinear; star is degenerate")
+    triples = [_dot(_sub(p, vertex), normal) for p in neighbors[2:]]
+    held = all(t == 0 for t in triples)
+    return held, normal, triples
 
 
 @dataclass(frozen=True)
@@ -164,11 +201,7 @@ class GuestStatement:
         return body
 
 
-def run_v_push(
-    P: list[list[int]],
-    T: list[list[int]],
-    x: list[int],
-) -> GuestStatement:
+def run_v_push(P: list[list[int]], T: list[list[int]], x: list[int]) -> GuestStatement:
     P_i = _mat2(P, "P")
     T_i = _mat2(T, "T")
     x_i = _vec2(x, "x")
@@ -193,11 +226,7 @@ def run_v_push(
     )
 
 
-def run_discrete_decrease(
-    A: list[list[int]],
-    P: list[list[int]],
-    x: list[int],
-) -> GuestStatement:
+def run_discrete_decrease(A: list[list[int]], P: list[list[int]], x: list[int]) -> GuestStatement:
     A_i = _mat2(A, "A")
     P_i = _mat2(P, "P")
     x_i = _vec2(x, "x")
@@ -220,13 +249,7 @@ def run_discrete_decrease(
     )
 
 
-def run_jacobi_steps(
-    j0: int,
-    j1: int,
-    k: int,
-    h2: int,
-    steps: int,
-) -> GuestStatement:
+def run_jacobi_steps(j0: int, j1: int, k: int, h2: int, steps: int) -> GuestStatement:
     trace = jacobi_trace(j0, j1, k, h2, steps)
     return GuestStatement(
         statement_id=STATEMENT_JACOBI,
@@ -241,25 +264,53 @@ def run_jacobi_steps(
     )
 
 
-FIXTURE_V_PUSH = {
-    "P": [[2, 0], [0, 3]],
-    "T": [[2, 1], [1, 1]],
-    "x": [1, 2],
-}
+def run_developable_star(
+    vertex: list[int],
+    neighbors: list[list[int]],
+) -> GuestStatement:
+    v = _vec3(vertex, "vertex")
+    pts = tuple(_vec3(p, f"neighbors[{i}]") for i, p in enumerate(neighbors))
+    held, normal, triples = coplanar_star(v, pts)
+    return GuestStatement(
+        statement_id=STATEMENT_DEVELOPABLE,
+        numeric_contract=NUMERIC_CONTRACT_STAR,
+        claim_scope=CLAIM_SCOPE,
+        inputs={"vertex": vertex, "neighbors": neighbors},
+        outputs={
+            "normal": list(normal),
+            "triples": triples,
+            "max_abs_triple": 0 if not triples else max(abs(t) for t in triples),
+        },
+        held=held,
+        proof_status="NOT_CHECKED",
+        host_oracle_gap=0.0,
+        notes=(
+            "Coplanar integer star is sufficient for discrete K=0 at the vertex. "
+            "Not a facade stamp. Not an IFC entity. Do not import into gat."
+        ),
+    )
 
-FIXTURE_DECREASE = {
-    "A": [[0, 1], [0, 0]],
-    "P": [[1, 0], [0, 1]],
-    "x": [2, 3],
-}
 
+FIXTURE_V_PUSH = {"P": [[2, 0], [0, 3]], "T": [[2, 1], [1, 1]], "x": [1, 2]}
+FIXTURE_DECREASE = {"A": [[0, 1], [0, 0]], "P": [[1, 0], [0, 1]], "x": [2, 3]}
 FIXTURE_JACOBI = {"j0": 0, "j1": 1, "k": 0, "h2": 1, "steps": 4}
+FIXTURE_DEVELOPABLE = {
+    "vertex": [0, 0, 0],
+    "neighbors": [[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0]],
+}
+FIXTURE_DEVELOPABLE_FAIL = {
+    "vertex": [0, 0, 1],
+    "neighbors": [[1, 0, 0], [0, 1, 0], [-1, 0, 0], [0, -1, 0]],
+}
 
 
 def run_fixture_suite() -> dict[str, Any]:
-    v_push = run_v_push(**FIXTURE_V_PUSH)
-    decrease = run_discrete_decrease(**FIXTURE_DECREASE)
-    jacobi = run_jacobi_steps(**FIXTURE_JACOBI)
+    statements = [
+        run_v_push(**FIXTURE_V_PUSH),
+        run_discrete_decrease(**FIXTURE_DECREASE),
+        run_jacobi_steps(**FIXTURE_JACOBI),
+        run_developable_star(**FIXTURE_DEVELOPABLE),
+    ]
     return {
         "confirmed_out_of_development": False,
         "claim_scope": CLAIM_SCOPE,
@@ -267,10 +318,10 @@ def run_fixture_suite() -> dict[str, Any]:
         "proof_status": "NOT_CHECKED",
         "may_authorize": False,
         "numeric_contract": NUMERIC_CONTRACT,
-        "statements": [v_push.to_dict(), decrease.to_dict(), jacobi.to_dict()],
+        "statements": [s.to_dict() for s in statements],
         "notes": (
             "Integer twins of declared discrete maps. "
-            "Attach SP1 only as a host callback over this contract. "
+            "developable-star-v1 is coplanar-star, not a building stamp. "
             "Do not import this module into gat."
         ),
     }
