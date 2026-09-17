@@ -1,0 +1,19 @@
+{
+  "schema": "invariant-corpus-v1",
+  "claim_scope": "computational-integrity-only",
+  "cites": "giasonpooni/Construction-State-Estimator-for-BIM",
+  "invariants": [
+    {
+      "id": "cert.V-on-declared-A",
+      "kind": "certificate",
+      "statement": "V is only issued for a declared A."
+    }
+  ],
+  "free_coordinates": [
+    {
+      "id": "var.x",
+      "quantity": "state",
+      "needs": ["declared-A"]
+    }
+  ]
+}
