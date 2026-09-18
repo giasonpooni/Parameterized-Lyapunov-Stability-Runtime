@@ -367,7 +367,7 @@ def test_the_public_surface_is_sorted_and_matches_what_is_imported():
         if not name.startswith("_") and name not in {"annotations"}
     }
     submodules = {
-        "benchmarks", "certificates", "charts", "checks", "constitution",
+        "benchmarks", "certificates", "charts", "checks", "claims", "constitution",
         "discrete_guest", "equation", "host_callback", "linalg", "plants",
         "reference_plants", "reports", "runtime",
     }

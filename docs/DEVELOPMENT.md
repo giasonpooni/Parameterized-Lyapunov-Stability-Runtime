@@ -33,6 +33,11 @@ Until that decision exists, treat every PASS as a development sample.
   three constants are in `docs/KERNEL.md`.
 - The i64 guest refuses every operation that leaves the range, matching the
   Rust twin operation for operation. A twin disagreement is a refuse.
+- Every check reports a claim code from `claim-codes-v1`. A vertex sweep
+  earns `SUFFICIENT_COMMON_QUADRATIC` at best, never a statement about the
+  plant being stable.
+- `Pdot` is recorded, not implied. A constant `P` records the zero matrix,
+  so a declared `theta_dot` box cannot look as though it entered.
 
 ## Mutation gate
 

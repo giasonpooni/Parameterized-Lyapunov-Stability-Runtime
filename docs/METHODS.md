@@ -96,6 +96,39 @@ over the integers. That predicate is total and needs no tolerance, and it
 also pins scale, which is exactly the degree of freedom the float64
 determinant loses. See [DISCRETE-GUEST-v1.md](DISCRETE-GUEST-v1.md).
 
+## What is claimed, as a code
+
+Every `CheckResult` carries a `claim` from a versioned vocabulary
+(`lyapunov.claims`, `claim-codes-v1`), and the published reports print it.
+A bare `passed=True` invites the reader to supply the claim, and the one
+they supply is usually larger than the one the instrument made.
+
+| code | what passing it means |
+| --- | --- |
+| `SUFFICIENT_COMMON_QUADRATIC` | a common quadratic held at every declared corner, and the corners bound the box |
+| `DECLARED_SAMPLES_ONLY` | the declared sites held; nothing was shown about the rest of the box |
+| `SAMPLE_DECREASE` | the decrease form was negative definite at one declared sample |
+| `EQUATION_RESIDUAL` | a supplied P satisfies the equation against a declared Q |
+| `CHART_INVARIANCE` | V and the scalar decrease survived a change of coordinates |
+| `CHART_PUSH_REFUSED` | the chart was accepted, the pushforward left float64 |
+| `SPECTRUM_DIAGNOSTIC` | the spectrum is consistent with the certificate |
+
+`LPV_STABLE`, `STABLE`, `CERTIFIED_STABLE`, `NECESSARY`, `VERIFIED`, `SAFE`
+and `AUTHORIZED` are listed in `claims.FORBIDDEN_CLAIMS` and refused by the
+`CheckResult` constructor, so the prohibition is executable and not only
+written down here.
+
+## The parameter rate
+
+`CertificateSample.P_rate` records the `Pdot` that actually entered the
+decrease form: the affine sum for an `AffineCertificate`, the zero matrix
+for a constant `P`, and `None` in discrete time, where the law admits no
+rate term. A constant `P` has `Pdot = 0` because `P` does not depend on
+`theta`, not because a declared rate was ignored, and a plant may declare
+a `theta_dot` box that therefore never enters the arithmetic.
+`check_vertices` says so in its details rather than leaving the bound
+looking used.
+
 ## What is not claimed
 
 Vertex checks on an affine plant are a sufficient common-quadratic

@@ -285,6 +285,34 @@ MUTATIONS: tuple[Mutation, ...] = (
         '        "guest_manifest": "/home/user/guests/sp1-program/README.md",',
     ),
     Mutation(
+        "34",
+        "a check cannot carry a claim this instrument cannot make",
+        "src/lyapunov/checks.py",
+        "    def __post_init__(self) -> None:\n        require_claim(self.claim)",
+        "    def __post_init__(self) -> None:\n        pass",
+    ),
+    Mutation(
+        "35",
+        "an affine P earns declared samples only, never box sufficiency",
+        "src/lyapunov/checks.py",
+        "    code = SUFFICIENT_COMMON_QUADRATIC if sufficient else DECLARED_SAMPLES_ONLY",
+        "    code = SUFFICIENT_COMMON_QUADRATIC",
+    ),
+    Mutation(
+        "36",
+        "a constant P records a zero Pdot, not a silent None",
+        "src/lyapunov/runtime.py",
+        "        return np.zeros_like(certificate.P)",
+        "        return None",
+    ),
+    Mutation(
+        "37",
+        "the published report carries the claim code",
+        "src/lyapunov/reports.py",
+        'lines.append(f"- [{mark}] {check.claim} {check.name}: {check.details}")',
+        'lines.append(f"- [{mark}] {check.name}: {check.details}")',
+    ),
+    Mutation(
         "25",
         "a chart push refusal is reported, not raised, by a check",
         "src/lyapunov/checks.py",
@@ -390,9 +418,16 @@ def _confirm_sandbox_is_active(sandbox: Path) -> None:
     )
     resolved = probe.stdout.strip()
     if not resolved.startswith(str(sandbox)):
+        detail = probe.stderr.strip().splitlines()[-1:] or ["no stderr"]
+        hint = ""
+        if "--working-tree" in " ".join(sys.argv) and "ModuleNotFoundError" in probe.stderr:
+            hint = (
+                "\n  --working-tree copies TRACKED files only, so a new module "
+                "that has not been `git add`ed is missing from the sandbox."
+            )
         raise SystemExit(
             f"sandbox is not active: lyapunov resolved to {resolved!r}, "
-            f"expected a path under {sandbox}"
+            f"expected a path under {sandbox}\n  {detail[0]}{hint}"
         )
 
 

@@ -23,6 +23,10 @@ If a function only needs a chart condition cap, it stays in JSPT.
 `solve_lyapunov`, `decrease_matrix`, `evaluate`, `verdict`,
 `push_certificate`, `plant_from_jacobian`
 
+The claim vocabulary is frozen the same way: the codes in
+`lyapunov.claims` under `claim-codes-v1`. Adding a code is a new version.
+Changing what a code means is not allowed at all.
+
 Add freely behind them. Do not rename to sound like JSPT or FSRT.
 
 ## Constitution

@@ -8,6 +8,16 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .certificates import AffineCertificate, Certificate, QuadraticCertificate
+from .claims import (
+    CHART_INVARIANCE,
+    CHART_PUSH_REFUSED,
+    DECLARED_SAMPLES_ONLY,
+    EQUATION_RESIDUAL,
+    SAMPLE_DECREASE,
+    SPECTRUM_DIAGNOSTIC,
+    SUFFICIENT_COMMON_QUADRATIC,
+    require_claim,
+)
 from .charts import LinearChart, push_certificate, push_plant
 from .constitution import MIN_DECREASE_MARGIN
 from .equation import decrease_matrix
@@ -23,6 +33,15 @@ class CheckResult:
     residual: float
     details: str
     extra: dict[str, float]
+    claim: str
+    """What passing this check actually asserts, as a code from claims.py.
+
+    ``passed=True`` on its own invites the reader to supply the claim, and
+    the one they supply is usually larger than the one that was made.
+    """
+
+    def __post_init__(self) -> None:
+        require_claim(self.claim)
 
     def raise_for_failure(self) -> None:
         if not self.passed:
@@ -94,6 +113,7 @@ def check_decrease(
             f"min eig(P)={sample.min_P:.3e}, max eig(M)={sample.max_decrease:.3e}"
         ),
         extra={"min_P": sample.min_P, "max_decrease": sample.max_decrease},
+        claim=SAMPLE_DECREASE,
     )
 
 
@@ -142,19 +162,24 @@ def check_vertices(
                 failures += 1
     passed = failures == 0 and checked > 0
     sufficient = isinstance(certificate, QuadraticCertificate)
-    claim = (
-        "sufficient common-quadratic test on the declared box"
-        if sufficient
-        else "declared corners only; NOT sufficient for the box (P(theta) makes the "
-        "decrease form quadratic in theta)"
-    )
+    code = SUFFICIENT_COMMON_QUADRATIC if sufficient else DECLARED_SAMPLES_ONLY
+    # A constant P has Pdot = 0 by construction, so a declared rate box
+    # cannot enter the decrease form at all. Say that, rather than letting
+    # the bound look as though it was used.
+    rate_note = ""
+    if sufficient and isinstance(plant, AffinePlant):
+        if float(np.max(np.abs(plant.rate_max - plant.rate_min))) > 0.0:
+            rate_note = (
+                "; the declared theta_dot box does not enter: a constant P has "
+                "Pdot = 0"
+            )
     return CheckResult(
         name=f"vertices:{plant.name}:{certificate.name}",
         passed=passed,
         residual=worst,
         details=(
             f"{checked} corners, {failures} failed; worst {worst_label} "
-            f"max eig(M)={worst:.3e}; {claim}"
+            f"max eig(M)={worst:.3e}{rate_note}"
         ),
         extra={
             "corners": float(checked),
@@ -162,6 +187,7 @@ def check_vertices(
             "worst": worst,
             "sufficient_for_box": float(sufficient),
         },
+        claim=code,
     )
 
 
@@ -200,6 +226,7 @@ def check_chart_invariance(
                 "decrease_gap": float("inf"),
                 "P_frobenius_ratio": float("nan"),
             },
+            claim=CHART_PUSH_REFUSED,
         )
     x_prime = chart.T @ np.asarray(x, dtype=float)
     primed = evaluate(primed_plant, primed_cert, x_prime)
@@ -225,6 +252,7 @@ def check_chart_invariance(
                 / max(np.linalg.norm(certificate.P, "fro"), 1e-16)
             ),
         },
+        claim=CHART_INVARIANCE,
     )
 
 
@@ -249,6 +277,7 @@ def check_equation_residual(
         residual=residual,
         details=f"max |A-form + Q|={residual:.3e}",
         extra={"relative": residual / scale},
+        claim=EQUATION_RESIDUAL,
     )
 
 
@@ -287,4 +316,5 @@ def check_spectrum_agrees_with_certificate(
         residual=diagnostic,
         details=details,
         extra={"diagnostic": diagnostic, "max_decrease": max_decrease},
+        claim=SPECTRUM_DIAGNOSTIC,
     )

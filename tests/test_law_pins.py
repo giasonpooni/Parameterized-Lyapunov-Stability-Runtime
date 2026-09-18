@@ -29,7 +29,7 @@ from lyapunov.equation import decrease_matrix, solve_lyapunov
 from lyapunov.host_callback import Receipt, attach
 from lyapunov.plants import constant_plant
 from lyapunov.reference_plants import hurwitz2, two_vertex_lpv, unstable2
-from lyapunov.runtime import verdict
+from lyapunov.runtime import evaluate, verdict
 
 
 # --- "P that is not positive definite is refused. No clip, no nearest-PSD." ---
@@ -154,15 +154,17 @@ def test_a_positive_atol_only_tightens():
 
 def test_vertex_check_marks_whether_it_covers_the_box():
     plant = two_vertex_lpv()
+    from lyapunov.claims import DECLARED_SAMPLES_ONLY, SUFFICIENT_COMMON_QUADRATIC
+
     common = check_vertices(plant, quadratic(np.eye(2), name="P=I"), include_rates=False)
     assert common.extra["sufficient_for_box"] == 1.0
-    assert "sufficient common-quadratic test" in common.details
+    assert common.claim == SUFFICIENT_COMMON_QUADRATIC
 
     affine = check_vertices(
         plant, affine_quadratic(np.eye(2), [np.zeros((2, 2))], name="P(theta)")
     )
     assert affine.extra["sufficient_for_box"] == 0.0
-    assert "NOT sufficient for the box" in affine.details
+    assert affine.claim == DECLARED_SAMPLES_ONLY
 
 
 # --- "Charts push P by solves, not inverses." ---
@@ -609,3 +611,79 @@ def test_the_sp1_host_does_not_mint_the_flag_every_document_forbids():
     assert '"verified_by_bound_host": true' not in host
     assert '"proof_status": "VERIFIED"' not in host
     assert '"binding_gap"' in host, "the host must say why it withholds the flag"
+
+
+# --- a check says what it claims, and cannot claim more ---
+
+
+def test_a_check_result_cannot_carry_a_claim_this_instrument_cannot_make():
+    from lyapunov.checks import CheckResult
+    from lyapunov.claims import CLAIM_CODES, FORBIDDEN_CLAIMS, SAMPLE_DECREASE
+
+    for forbidden in sorted(FORBIDDEN_CLAIMS):
+        with pytest.raises(ValueError, match="not a claim|unknown claim"):
+            CheckResult(
+                name="n", passed=True, residual=0.0, details="d",
+                extra={}, claim=forbidden,
+            )
+    with pytest.raises(ValueError, match="unknown claim"):
+        CheckResult(name="n", passed=True, residual=0.0, details="d", extra={}, claim="ANYTHING")
+    ok = CheckResult(
+        name="n", passed=True, residual=0.0, details="d", extra={}, claim=SAMPLE_DECREASE
+    )
+    assert ok.claim in CLAIM_CODES
+
+
+def test_no_check_in_the_package_ever_claims_stability_of_the_plant():
+    from lyapunov.claims import FORBIDDEN_CLAIMS
+    from lyapunov.reports import quickstart_scenario
+
+    checks, _ = quickstart_scenario()
+    for check in checks:
+        assert check.claim not in FORBIDDEN_CLAIMS
+        for word in FORBIDDEN_CLAIMS:
+            assert word not in check.details
+
+
+def test_every_check_carries_a_claim_code():
+    from lyapunov.claims import CLAIM_CODES
+    from lyapunov.reports import quickstart_scenario
+
+    checks, _ = quickstart_scenario()
+    assert checks, "no checks to inspect"
+    for check in checks:
+        assert check.claim in CLAIM_CODES, check.name
+
+
+# --- the declared theta_dot box must not look used when it is not ---
+
+
+def test_a_constant_P_records_a_zero_Pdot_rather_than_none():
+    plant = two_vertex_lpv()
+    sample = evaluate(
+        plant, quadratic(np.eye(2), name="P=I"), [0.4, -0.2], theta=[0.5], theta_dot=[0.5]
+    )
+    assert sample.P_rate is not None, "a silent None reads as though a rate was used"
+    assert np.array_equal(sample.P_rate, np.zeros((2, 2)))
+
+
+def test_a_discrete_plant_records_no_Pdot_at_all():
+    plant = constant_plant([[0.5, 0.0], [0.0, 0.5]], name="d", time="discrete")
+    sample = evaluate(plant, quadratic(np.eye(2), name="P=I"), [1.0, 1.0])
+    assert sample.P_rate is None, "discrete time admits no rate term"
+
+
+def test_an_affine_P_records_the_Pdot_it_actually_added():
+    from lyapunov.certificates import affine_quadratic
+
+    plant = two_vertex_lpv()
+    cert = affine_quadratic(np.eye(2), [np.diag([0.1, 0.2])], name="P(theta)")
+    sample = evaluate(plant, cert, [0.4, -0.2], theta=[0.5], theta_dot=[0.5])
+    np.testing.assert_allclose(sample.P_rate, 0.5 * np.diag([0.1, 0.2]))
+
+
+def test_the_vertex_check_says_when_the_rate_box_cannot_enter():
+    plant = two_vertex_lpv()
+    assert float(np.max(np.abs(plant.rate_max - plant.rate_min))) > 0.0
+    result = check_vertices(plant, quadratic(np.eye(2), name="P=I"), include_rates=False)
+    assert "does not enter" in result.details

@@ -23,6 +23,15 @@ class CertificateSample:
     A: Array
     theta: Array | None
     theta_dot: Array | None
+    P_rate: Array | None
+    """The ``Pdot`` actually added to the decrease form.
+
+    Zero for a constant ``P``, where it is zero by construction, and
+    ``None`` in discrete time, where the law admits no rate term at all.
+    Recording it keeps the common-quadratic case honest: the plant may
+    declare a ``theta_dot`` box, and with a constant ``P`` that box does
+    not enter the arithmetic. A silent ``None`` read as though it had.
+    """
     min_P: float
     max_decrease: float
 
@@ -56,8 +65,10 @@ def _certificate_matrix(certificate: Certificate, theta: ArrayLike | None) -> Ar
 
 def _parameter_rate(certificate: Certificate, theta_dot: ArrayLike | None) -> Array | None:
     if isinstance(certificate, QuadraticCertificate):
-        # Common quadratic: Pdot = 0 even if the plant has a rate bound.
-        return None
+        # Common quadratic: Pdot is zero because P does not depend on theta,
+        # not because a rate was ignored. Return the zero matrix explicitly
+        # so the sample records what entered the form.
+        return np.zeros_like(certificate.P)
     if theta_dot is None:
         raise ValueError(f"{certificate.name} requires theta_dot in continuous time")
     rate = as_vector(theta_dot, "theta_dot")
@@ -111,6 +122,7 @@ def evaluate(
         A=A,
         theta=theta_vec,
         theta_dot=rate_vec,
+        P_rate=P_rate,
         min_P=float(np.min(hermitian_eigvals(P))),
         max_decrease=float(np.max(hermitian_eigvals(form))),
     )

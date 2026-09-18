@@ -12,6 +12,18 @@ from .certificates import (
     quadratic,
 )
 from .charts import LinearChart, push_certificate, push_plant
+from .claims import (
+    CHART_INVARIANCE,
+    CHART_PUSH_REFUSED,
+    CLAIM_CODES,
+    CLAIM_CODES_VERSION,
+    DECLARED_SAMPLES_ONLY,
+    EQUATION_RESIDUAL,
+    FORBIDDEN_CLAIMS,
+    SAMPLE_DECREASE,
+    SPECTRUM_DIAGNOSTIC,
+    SUFFICIENT_COMMON_QUADRATIC,
+)
 from .checks import (
     CheckResult,
     check_chart_invariance,
@@ -49,10 +61,17 @@ from .runtime import CertificateSample, Verdict, evaluate, verdict
 __all__ = [
     "AffineCertificate",
     "AffinePlant",
+    "CHART_INVARIANCE",
+    "CHART_PUSH_REFUSED",
+    "CLAIM_CODES",
+    "CLAIM_CODES_VERSION",
     "CallbackResult",
     "CaseResult",
     "CertificateSample",
     "CheckResult",
+    "DECLARED_SAMPLES_ONLY",
+    "EQUATION_RESIDUAL",
+    "FORBIDDEN_CLAIMS",
     "GUEST_CLAIM_SCOPE",
     "GuestRefuse",
     "GuestStatement",
@@ -62,6 +81,9 @@ __all__ = [
     "MIN_DECREASE_MARGIN",
     "QuadraticCertificate",
     "Receipt",
+    "SAMPLE_DECREASE",
+    "SPECTRUM_DIAGNOSTIC",
+    "SUFFICIENT_COMMON_QUADRATIC",
     "SYMMETRY_ATOL",
     "Verdict",
     "affine_box_plant",

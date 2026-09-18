@@ -18,7 +18,9 @@ def format_checks(title: str, checks: list[CheckResult]) -> str:
     lines = [f"# {title}", ""]
     for check in checks:
         mark = "PASS" if check.passed else "FAIL"
-        lines.append(f"- [{mark}] {check.name}: {check.details}")
+        # The claim code travels with the result. A published PASS without
+        # one lets the reader supply a larger claim than the check made.
+        lines.append(f"- [{mark}] {check.claim} {check.name}: {check.details}")
     lines.append("")
     return "\n".join(lines)
 
