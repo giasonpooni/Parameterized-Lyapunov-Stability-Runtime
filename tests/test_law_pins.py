@@ -235,3 +235,68 @@ def test_host_oracle_gap_is_none_because_no_oracle_ran():
     stmt = run_v_push(P=[[2, 0], [0, 3]], T=[[2, 1], [1, 1]], x=[1, 2])
     assert stmt.host_oracle_gap is None
     assert stmt.outputs["V_gap"] == 0
+
+
+# --- "Singular T refused" is a scale-invariant refusal, not a rank claim ---
+
+
+def test_a_well_conditioned_chart_is_accepted_at_any_scale():
+    # det is scale-covariant: det(c*I(n)) = c**n underflows to 0.0 while the
+    # condition number stays exactly 1. A determinant gate refuses these; a
+    # rank gate does not. n = 24 is MAX_KRONECKER_DIM, and 1e-15 is a
+    # femto-scale unit conversion, so this is a reachable chart.
+    for dim, scale in ((24, 1e-15), (4, 1e-100), (2, 1e-40)):
+        T = scale * np.eye(dim)
+        assert float(np.linalg.det(T)) == 0.0 or dim == 2
+        assert np.linalg.cond(T) == pytest.approx(1.0)
+        chart = LinearChart(name=f"scale-{dim}", T=T)
+        assert chart.dim == dim
+
+
+def test_V_survives_a_chart_whose_determinant_underflowed():
+    dim, scale = 24, 1e-15
+    assert float(np.linalg.det(scale * np.eye(dim))) == 0.0
+    cert = quadratic(np.eye(dim) + 0.01 * (np.eye(dim, k=1) + np.eye(dim, k=-1)))
+    chart = LinearChart.scale([scale] * dim, name="femto")
+    pushed = push_certificate(cert, chart)
+    x = np.ones(dim)
+    assert float(x @ cert.P @ x) == pytest.approx(
+        float((chart.T @ x) @ pushed.P @ (chart.T @ x))
+    )
+
+
+def test_an_exactly_singular_chart_is_still_refused():
+    with pytest.raises(ValueError, match="invertible"):
+        LinearChart(name="rank-1", T=[[1.0, 0.0], [2.0, 0.0]])
+
+
+def test_a_singular_chart_whose_float_determinant_is_nonzero_is_refused():
+    # This is the class a determinant gate misses: exactly rank-deficient by
+    # construction, yet det != 0.0 in float64 and np.linalg.solve succeeds.
+    rng = np.random.default_rng(3)
+    refused = examined = 0
+    while examined < 8:
+        B = rng.normal(size=(5, 4))
+        T = np.column_stack([B, B[:, :3] @ rng.normal(size=3)])
+        if abs(float(np.linalg.det(T))) == 0.0:
+            continue
+        examined += 1
+        with pytest.raises(ValueError, match="invertible"):
+            LinearChart(name="numerically-singular", T=T)
+        refused += 1
+    assert refused == 8
+
+
+def test_a_chart_whose_pushforward_overflows_is_refused_not_silently_accepted():
+    chart = LinearChart.scale([1e-170, 1e-170], name="beyond-float64")
+    with pytest.raises(ValueError):
+        push_certificate(quadratic(np.eye(2)), chart)
+
+
+def test_there_is_still_no_condition_number_constant_anywhere():
+    import lyapunov
+    from lyapunov import constitution
+
+    names = [n for n in dir(constitution) if not n.startswith("_")]
+    assert not [n for n in names if "COND" in n.upper() or "CAP" in n.upper()], names
+    assert not [n for n in dir(lyapunov) if "MAX_CONDITION" in n.upper()]

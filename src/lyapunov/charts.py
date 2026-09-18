@@ -5,9 +5,9 @@ through an already-accepted invertible T so that V is invariant:
 
     x' = T x,    P' T = Y  with  T^T Y = P,    V'(x') = V(x).
 
-A singular T is refused at construction by an exact-det and rank test, and
-again by a failed solve if one is reached directly. There is no local
-condition cap and no nearest-PSD repair.
+A singular T is refused at construction by a rank test, and again by a
+failed solve or a non-finite P' downstream. This is a refusal, not a rank
+claim. There is no local condition cap and no nearest-PSD repair.
 """
 
 from __future__ import annotations
@@ -29,15 +29,26 @@ class LinearChart:
 
     def __post_init__(self) -> None:
         T = as_square(self.T, "T")
-        # Both tests are load-bearing. det==0.0 alone is scale-dependent
-        # (det(1e-100*I) is 0.0 at condition number 1). The rank test alone
-        # is numpy's smax*n*eps criterion -- the float64 definition of
-        # singular, tracking machine epsilon, not a policy number. It is not
-        # JSPT's 1e12 MAX_CONDITION_NUMBER and no such constant exists here:
-        # a chart at condition 1e12 is accepted (tests/test_constitution.py).
-        # Dropping the rank test would admit exactly-singular charts whose
-        # float det is nonzero and for which np.linalg.solve still succeeds.
-        if abs(float(np.linalg.det(T))) == 0.0 or np.linalg.matrix_rank(T) < T.shape[0]:
+        # Rank, not determinant. det is scale-COVARIANT: det(cT) = c**n det(T),
+        # so it underflows to 0.0 for a uniformly small T whose condition
+        # number is exactly 1 -- and the worse the larger n is, because the
+        # scale enters as the n-th power. At n=24 (MAX_KRONECKER_DIM) a
+        # femto-scale unit chart 1e-15*I has det 0.0 and is perfectly
+        # invertible. Rank is scale-INVARIANT and is the relational question
+        # actually being asked: is dim(image) full? A search over exactly
+        # rank-deficient matrices found no case the det clause caught that the
+        # rank test did not, and many well-conditioned charts it refused.
+        #
+        # numpy's rank tolerance is smax*n*eps, the float64 definition of
+        # singular, tracking machine epsilon. It is not a policy number and
+        # not JSPT's 1e12 MAX_CONDITION_NUMBER; no such constant exists here
+        # and a chart at condition 1e12 is accepted (tests/test_constitution).
+        # This is a REFUSAL, not a rank measurement: no float64 predicate can
+        # report a rank, because rank is integer-valued and upper
+        # semi-continuous, so every implementation must pick a threshold. The
+        # exact, threshold-free version of this question lives in the i64
+        # guest as unimodularity, det T in {+1,-1}.
+        if np.linalg.matrix_rank(T) < T.shape[0]:
             raise ValueError("T must be invertible")
         object.__setattr__(self, "T", immutable(T))
 

@@ -61,10 +61,31 @@ P' = T^{-T} P T^{-1},    A' = T A T^{-1}.
 
 Then `V'(x') = V(x)` and the scalar decrease is unchanged. Raw
 Frobenius norms of P are not invariant. This package does not apply
-JSPT's condition cap; a singular T is refused at chart construction by an
-exact-det and rank test, and again by a failed solve. The rank test is the
-float64 definition of singular (`smax * n * eps`), not a chosen policy
-number: a chart at condition 1e12 is accepted.
+JSPT's condition cap; a singular T is refused at chart construction by a
+rank test, and again downstream by a failed solve or a non-finite `P'`.
+
+The test is rank, not determinant, and that choice is structural rather
+than a tuning preference. Invertibility is a *relational* question -- is
+`dim(image)` full? -- and a determinant answers it only up to scale, since
+`det(cT) = c^n det(T)`. A uniformly small chart therefore underflows to
+`det = 0` while its condition number is exactly 1, and the failure grows
+with `n` because the scale enters as the n-th power: at `n = 24` a
+femto-scale unit chart `1e-15 * I` has `det = 0.0` and is perfectly
+invertible. Rank is scale-invariant and does not have that failure.
+
+What rank cannot do is be exact. It is integer-valued and upper
+semi-continuous, so it is not a continuous function of the matrix, and
+every float64 implementation must choose a threshold. NumPy's is
+`smax * n * eps`, the float64 definition of singular -- it tracks machine
+epsilon rather than naming a policy number, which is why it is not
+JSPT's `MAX_CONDITION_NUMBER`; a chart at condition 1e12 is accepted.
+
+So this package makes a **refusal**, never a rank claim. The exact,
+threshold-free form of the same question exists in the integer satellite,
+where a chart is admitted only if it is unimodular, `det T` in `{+1, -1}`
+over the integers. That predicate is total and needs no tolerance, and it
+also pins scale, which is exactly the degree of freedom the float64
+determinant loses. See [DISCRETE-GUEST-v1.md](DISCRETE-GUEST-v1.md).
 
 ## What is not claimed
 
