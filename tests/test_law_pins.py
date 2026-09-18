@@ -565,3 +565,47 @@ def test_a_star_whose_first_two_spokes_are_collinear_is_still_decided():
     )
     assert statement.held is True
     assert statement.outputs["defect"] == 0
+
+
+# --- no tolerance kwarg anywhere may loosen a test ---
+
+
+def test_no_check_accepts_a_tolerance_looser_than_its_default():
+    from lyapunov.checks import check_equation_residual
+
+    plant = hurwitz2()
+    cert = solve_lyapunov(plant.A, time=plant.time)
+    Q = np.eye(2)
+    assert check_equation_residual(plant, cert, Q).passed
+    for kwargs in ({"rtol": 1e300}, {"atol": 1.0}, {"rtol": -1.0}, {"atol": float("inf")}):
+        with pytest.raises(ValueError, match="tol"):
+            check_equation_residual(plant, cert, Q, **kwargs)
+    chart = LinearChart(name="shear", T=[[1.0, 0.5], [0.3, 1.0]])
+    for kwargs in ({"rtol": 1.0}, {"atol": 1e-3}):
+        with pytest.raises(ValueError, match="tol"):
+            check_chart_invariance(plant, cert, chart, [0.3, -1.1], **kwargs)
+
+
+def test_a_tighter_tolerance_is_still_allowed():
+    from lyapunov.checks import check_equation_residual
+
+    plant = hurwitz2()
+    cert = solve_lyapunov(plant.A, time=plant.time)
+    assert check_equation_residual(plant, cert, np.eye(2), rtol=0.0, atol=1e-12).passed
+
+
+def test_the_sp1_host_does_not_mint_the_flag_every_document_forbids():
+    # HANDOFF.md, sp1-program/README.md and the guest source all say nothing
+    # here may set verified_by_bound_host until the guest commits
+    # statement_digest. The host is the one thing that could, so read it.
+    host = (
+        Path(__file__).resolve().parents[1]
+        / "guests"
+        / "discrete-morphisms-v1"
+        / "sp1-host"
+        / "src"
+        / "main.rs"
+    ).read_text(encoding="utf-8")
+    assert '"verified_by_bound_host": true' not in host
+    assert '"proof_status": "VERIFIED"' not in host
+    assert '"binding_gap"' in host, "the host must say why it withholds the flag"

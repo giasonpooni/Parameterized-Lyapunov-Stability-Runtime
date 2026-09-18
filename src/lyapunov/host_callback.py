@@ -6,7 +6,6 @@ VERIFIED only when a bound host set verified_by_bound_host after client.verify.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import shutil
 from typing import Any, Literal
 
@@ -142,13 +141,9 @@ def attach_fixture_suite(receipts: dict[str, Receipt] | None = None) -> dict[str
         "proof_status": "NOT_CHECKED",
         "may_authorize": False,
         "cargo_prove_available": cargo_prove_available(),
-        "guest_manifest": str(
-            Path(__file__).resolve().parents[2]
-            / "guests"
-            / "discrete-morphisms-v1"
-            / "sp1-program"
-            / "README.md"
-        ),
+        # Repository-relative: this value is committed in results/, and an
+        # absolute path would pin one machine's layout into the record.
+        "guest_manifest": "guests/discrete-morphisms-v1/sp1-program/README.md",
         "callbacks": attached,
         "notes": "Four integer statements. Public commit is id/held/digest. may_authorize stays false.",
     }

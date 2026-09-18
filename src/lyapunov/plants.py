@@ -45,11 +45,21 @@ class AffinePlant:
     """Affine-parameter plant ``A(theta) = A0 + sum theta_i A_i``.
 
     ``theta`` lives in a declared box. For a common quadratic (constant P)
-    the corners are a sufficient test of the box, because the decrease form
-    is then affine in ``theta``. For an affine ``P(theta)`` the form is
-    quadratic in ``theta`` and the corners are evaluation sites only, not a
-    box certificate. Rate bounds, when present, bound ``theta_dot`` for
-    continuous-time PDLFs; the rate corners do bound the rate box.
+    the corners are a sufficient test of the box, and the reason is
+    convexity rather than the degree in ``theta``. In continuous time the
+    decrease form is affine in ``theta``; in discrete time it is quadratic,
+    yet ``x^T A(theta)^T P A(theta) x = ||L A(theta) x||^2`` with
+    ``P = L^T L`` is convex in ``theta`` for each fixed ``x``, so the largest
+    eigenvalue, a pointwise supremum of convex functions, is convex either
+    way and attains its box maximum at a corner. ``P`` is positive definite
+    by construction, so ``L`` always exists.
+
+    For an affine ``P(theta)`` that convexity is lost and the corners are
+    evaluation sites only, not a box certificate.
+
+    Rate bounds, when present, bound ``theta_dot`` for continuous-time
+    PDLFs; the rate corners do bound the rate box, since for fixed ``theta``
+    the form depends on ``theta_dot`` only through an affine term.
     """
 
     name: str

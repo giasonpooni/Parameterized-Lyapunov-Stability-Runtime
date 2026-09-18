@@ -27,7 +27,11 @@ CLF synthesizer.
 - SDP synthesis of P (cvxpy, MOSEK, and friends).
 - Control-Lyapunov formulas that emit an input u.
 - Hybrid switching, resets, and dwell-time certificates.
-- A compiled Rust or CUDA gate.
+- A compiled Rust or CUDA *gate* over the float64 oracle. The `i64` twin in
+  `guests/discrete-morphisms-v1` is not that: it is a satellite restating
+  four discrete maps exactly in integers, it seals nothing, and
+  `proof_status` stays `NOT_CHECKED`. See
+  [DISCRETE-GUEST-v1.md](DISCRETE-GUEST-v1.md).
 - Importing `sensitivity` and becoming a second Jacobian package.
 
 A common quadratic that holds at every vertex of an affine plant is a

@@ -158,6 +158,15 @@ def two_tank_leak_companion() -> CaseResult:
 
 
 def chart_invariance_on_companion() -> CaseResult:
+    """Chart invariance of V on the leak companion.
+
+    Note what this case does and does not exercise. The companion's
+    ``A = -diag(0.4/2.0, 0.3/1.5)`` is ``-0.2 * I``, a scalar matrix, so
+    ``T A T^-1 = A`` for every invertible ``T`` and the plant push is a
+    no-op here. The certificate push is what moves. ``push_plant`` on a
+    non-scalar ``A`` is covered by ``check_chart_invariance`` on
+    ``hurwitz2`` in the quickstart and in tests/test_charts.py.
+    """
     areas = np.array([2.0, 1.5])
     leak = np.array([0.4, 0.3])
     A = -np.diag(leak / areas)

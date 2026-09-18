@@ -44,6 +44,31 @@ def _require_tightening(atol: float) -> float:
     return value
 
 
+DEFAULT_EQUATION_ATOL = 1e-8
+DEFAULT_EQUATION_RTOL = 1e-8
+DEFAULT_CHART_ATOL = 1e-10
+DEFAULT_CHART_RTOL = 1e-9
+
+
+def _require_no_looser(value: float, default: float, name: str) -> float:
+    """A tolerance may be made stricter, never weaker than its declared default.
+
+    ``check_equation_residual(..., rtol=1e300)`` would otherwise report
+    passed=True for any P at all, which is a kwarg that changes the law.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.floating, np.integer)):
+        raise ValueError(f"{name} must be a real number; got {type(value).__name__}")
+    number = float(value)
+    if not np.isfinite(number) or number < 0.0:
+        raise ValueError(f"{name} must be finite and non-negative; got {value!r}")
+    if number > default:
+        raise ValueError(
+            f"{name}={number:.3e} is looser than the declared {default:.3e}; "
+            "a tolerance may only tighten a test"
+        )
+    return number
+
+
 def check_decrease(
     plant: Plant,
     certificate: Certificate,
@@ -146,8 +171,8 @@ def check_chart_invariance(
     chart: LinearChart,
     x: ArrayLike,
     *,
-    atol: float = 1e-10,
-    rtol: float = 1e-9,
+    atol: float = DEFAULT_CHART_ATOL,
+    rtol: float = DEFAULT_CHART_RTOL,
 ) -> CheckResult:
     """V and the scalar decrease must be invariant under x' = T x.
 
@@ -158,6 +183,8 @@ def check_chart_invariance(
     sweeping charts sees it the same way as any other failure. The refusal
     itself still stands in ``push_certificate``.
     """
+    atol = _require_no_looser(atol, DEFAULT_CHART_ATOL, "atol")
+    rtol = _require_no_looser(rtol, DEFAULT_CHART_RTOL, "rtol")
     sample = evaluate(plant, certificate, x)
     try:
         primed_plant = push_plant(plant, chart)
@@ -206,9 +233,11 @@ def check_equation_residual(
     certificate: QuadraticCertificate,
     Q: ArrayLike,
     *,
-    atol: float = 1e-8,
-    rtol: float = 1e-8,
+    atol: float = DEFAULT_EQUATION_ATOL,
+    rtol: float = DEFAULT_EQUATION_RTOL,
 ) -> CheckResult:
+    atol = _require_no_looser(atol, DEFAULT_EQUATION_ATOL, "atol")
+    rtol = _require_no_looser(rtol, DEFAULT_EQUATION_RTOL, "rtol")
     Q_mat = np.asarray(Q, dtype=float)
     residual_matrix = decrease_matrix(plant.A, certificate.P, time=plant.time) + Q_mat
     residual = float(np.max(np.abs(residual_matrix)))

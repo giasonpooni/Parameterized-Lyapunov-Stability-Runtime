@@ -14,8 +14,11 @@ SP1_PROVER=cpu cargo run --release -- --kind 1 --out receipt.json
 SP1_PROVER=cpu cargo run --release -- --prove --kind 1 --out receipt.json
 ```
 
-Execute is not a proof. Only `--prove` after `client.verify` may set
-`verified_by_bound_host=true`. `may_authorize` stays false.
+Execute is not a proof, and neither is `--prove` yet. `client.verify`
+succeeding is necessary but not sufficient: until the guest commits
+`statement_digest`, the receipt is not bound to any statement, so the host
+writes `proof_status: NOT_CHECKED` and `verified_by_bound_host: false`
+together with a `binding_gap` field saying why. `may_authorize` stays false.
 CI does not build this package.
 
 This program commits `(kind, held, a, b)`. That is **not** the public

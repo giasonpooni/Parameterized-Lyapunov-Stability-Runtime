@@ -67,7 +67,9 @@ uv run --python 3.13 python examples/write_figures.py
 uv run --python 3.13 --dev pytest -q
 ```
 
-The Rust twin is not a CI dependency and needs no `cargo-prove`:
+The Rust twin needs no `cargo-prove`, and CI runs it in a dedicated
+`i64 guest twin` job. The SP1 packages under `sp1-program/` and
+`sp1-host/` remain out of CI:
 
 ```
 cd guests/discrete-morphisms-v1 && cargo test && cargo run

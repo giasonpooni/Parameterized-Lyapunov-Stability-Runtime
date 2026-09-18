@@ -264,6 +264,27 @@ MUTATIONS: tuple[Mutation, ...] = (
         "        if False:",
     ),
     Mutation(
+        "31",
+        "no tolerance kwarg may loosen a check",
+        "src/lyapunov/checks.py",
+        '    rtol = _require_no_looser(rtol, DEFAULT_EQUATION_RTOL, "rtol")\n',
+        "",
+    ),
+    Mutation(
+        "32",
+        "the sp1 host does not mint verified_by_bound_host",
+        "guests/discrete-morphisms-v1/sp1-host/src/main.rs",
+        '        "proof_status": "NOT_CHECKED",\n        "verified_by_bound_host": false,',
+        '        "proof_status": "VERIFIED",\n        "verified_by_bound_host": true,',
+    ),
+    Mutation(
+        "33",
+        "a committed pin carries no absolute path",
+        "src/lyapunov/host_callback.py",
+        '        "guest_manifest": "guests/discrete-morphisms-v1/sp1-program/README.md",',
+        '        "guest_manifest": "/home/user/guests/sp1-program/README.md",',
+    ),
+    Mutation(
         "25",
         "a chart push refusal is reported, not raised, by a check",
         "src/lyapunov/checks.py",

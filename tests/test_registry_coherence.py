@@ -54,8 +54,9 @@ NUMBER_WORDS = {
 
 #: Any phrase that states how many guest statements there are.
 COUNT_PHRASE = re.compile(
-    r"\b(one|two|three|four|five|six|seven|eight)\s+"
-    r"(?:exact\s+|integer\s+|discrete\s+|i64\s+)*"
+    r"\b(one|two|three|four|five|six|seven|eight|\d+)\s+"
+    # qualifiers may be hyphenated: "four discrete-guest statements"
+    r"(?:[A-Za-z0-9`-]+\s+){0,3}?"
     r"(discrete identities|discrete maps|i64 twins|integer twins|"
     r"integer statements|guest statements|statements|identities|maps|twins)\b",
     re.IGNORECASE,
@@ -106,14 +107,18 @@ def test_each_registry_table_lists_exactly_the_suite_in_order():
 
 
 def test_no_doc_states_a_stale_statement_count():
+    assert len(EXPECTED_IDS) in NUMBER_WORDS, (
+        "extend NUMBER_WORDS before adding a ninth statement"
+    )
     expected_word = NUMBER_WORDS[len(EXPECTED_IDS)]
+    expected = {expected_word, str(len(EXPECTED_IDS))}
     wrong: list[str] = []
     for relative in ENUMERATING_DOCS:
         for line_no, line in enumerate(
             (ROOT / relative).read_text(encoding="utf-8").splitlines(), start=1
         ):
             for match in COUNT_PHRASE.finditer(line):
-                if match.group(1).lower() != expected_word:
+                if match.group(1).lower() not in expected:
                     wrong.append(f"{relative}:{line_no}: {match.group(0)!r} in {line.strip()!r}")
     assert not wrong, (
         f"the suite has {len(EXPECTED_IDS)} statements ({expected_word}); "
@@ -145,10 +150,22 @@ def test_public_commit_is_only_id_held_digest_for_every_statement():
 
 
 def test_no_statement_leaks_coordinates_into_its_public_commit():
+    # Structural, not a substring scan: the commit carries a sha256 hex
+    # digest, so a future single-letter input key such as "a" would match it
+    # by accident and fail for no reason.
     for statement in _suite()["statements"]:
-        blob = json.dumps(statement["public_commit"])
-        for key in statement["inputs"]:
-            assert key not in blob, f"{statement['statement_id']} leaks {key}"
+        commit = statement["public_commit"]
+        assert set(commit) == {"statement_id", "held", "statement_digest"}
+        assert set(commit) & set(statement["inputs"]) == set()
+        assert set(commit) & set(statement["outputs"]) == set()
+        # Compare types too: in Python 1 == True, so an integer input of 1
+        # would otherwise "match" the boolean held and fail for no reason.
+        published = (commit["statement_id"], commit["statement_digest"])
+        for key, value in statement["inputs"].items():
+            assert not any(
+                type(value) is type(shown) and value == shown for shown in published
+            ), f"{statement['statement_id']} publishes the input {key}"
+        assert isinstance(commit["held"], bool)
 
 
 def test_digest_is_stable_across_runs():
@@ -227,14 +244,85 @@ def test_cross_reference_pin_matches_its_runner_apart_from_the_timestamp():
     )
 
 
-def test_quickstart_pin_records_no_failure():
-    text = _committed("quickstart.md")
-    assert "[FAIL]" not in text
-    assert "[PASS]" in text
+def test_quickstart_pin_matches_its_generator():
+    from lyapunov.reports import format_quickstart
+
+    assert _committed("quickstart.md") == format_quickstart(), (
+        "results/quickstart.md is stale; rerun examples/quickstart.py"
+    )
+    assert "[FAIL]" not in _committed("quickstart.md")
 
 
-def test_every_runner_output_is_tracked_or_ignored():
-    ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
+def test_cross_reference_md_pin_matches_its_generator():
+    from lyapunov.benchmarks import JSPT_REPO, JSPT_SHA
+    from lyapunov.reports import format_cross_reference
+
+    assert _committed("cross_reference.md") == format_cross_reference(
+        run_suite(), JSPT_REPO, JSPT_SHA
+    ), "results/cross_reference.md is stale; rerun examples/cross_reference.py"
+
+
+@pytest.mark.skipif(
+    cargo_prove_available(),
+    reason="the committed pin was written on a host without cargo-prove",
+)
+def test_host_callback_json_pin_matches_its_runner():
+    # Field-by-field, not a spot check: a hand-edited pin with a flipped
+    # held, a fabricated digest or proof_status VERIFIED must not ship green.
+    expected = json.dumps(attach_fixture_suite(), indent=2) + "\n"
+    assert _committed("host_callback.json") == expected, (
+        "results/host_callback.json is stale or hand-edited; "
+        "rerun examples/host_callback.py"
+    )
+
+
+def test_no_committed_pin_carries_an_absolute_path():
+    for pin in RESULTS.iterdir():
+        text = pin.read_text(encoding="utf-8")
+        assert "/home/" not in text and "C:\\" not in text, (
+            f"{pin.name} pins one machine's layout into the record"
+        )
+
+
+#: An assertion of authority, as opposed to prose forbidding one. Matching
+#: the word anywhere would flag GATE.md's own "Do not report VERIFIED
+#: without a bound verifier", which is the line that makes the rule.
+ASSERTED_AUTHORITY = (
+    '"proof_status": "VERIFIED"',
+    '"may_authorize": true',
+    '"traceable": true',
+    '"verified_by_bound_host": true',
+)
+
+
+def test_no_pin_asserts_authority_it_does_not_have():
+    offenders: list[str] = []
+    for pin in sorted(p for p in RESULTS.iterdir() if p.is_file()):
+        for number, line in enumerate(pin.read_text(encoding="utf-8").splitlines(), 1):
+            for claim in ASSERTED_AUTHORITY:
+                if claim in line:
+                    offenders.append(f"{pin.name}:{number}: {line.strip()[:90]}")
+    assert not offenders, offenders
+
+
+def test_no_registry_table_row_claims_verification():
+    # A table row is an assertion about a statement. Prose is not.
+    offenders: list[str] = []
+    for relative in REGISTRY_TABLES:
+        for number, line in enumerate(
+            (ROOT / relative).read_text(encoding="utf-8").splitlines(), 1
+        ):
+            if not line.lstrip().startswith("|"):
+                continue
+            lowered = line.lower()
+            if "verified" in lowered or "may_authorize" in lowered or "traceable" in lowered:
+                offenders.append(f"{relative}:{number}: {line.strip()[:90]}")
+    assert not offenders, offenders
+
+
+def test_every_runner_output_is_tracked_by_git():
+    import subprocess
+
     written = (
         "quickstart.md",
         "cross_reference.json",
@@ -245,14 +333,43 @@ def test_every_runner_output_is_tracked_or_ignored():
         "host_callback.json",
         "host_callback.md",
     )
-    for name in written:
-        assert (RESULTS / name).exists(), (
-            f"results/{name} is written by a runner but not committed, and "
-            f"nothing in .gitignore explains it:\n{ignored}"
-        )
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "results"],
+            cwd=ROOT, capture_output=True, text=True, check=True,
+        ).stdout.split()
+    except (OSError, subprocess.CalledProcessError) as exc:  # pragma: no cover
+        pytest.skip(f"git unavailable: {exc}")
+    tracked = {name.split("/")[-1] for name in listed}
+    missing = [name for name in written if name not in tracked]
+    assert not missing, (
+        f"written by a runner but not tracked by git, so a fresh clone lacks "
+        f"them: {missing}"
+    )
 
 
 def test_development_status_is_still_recorded_everywhere_it_is_claimed():
     assert _suite()["confirmed_out_of_development"] is False
     assert attach_fixture_suite()["confirmed_out_of_development"] is False
     assert json.loads(_committed("cross_reference.json"))["confirmed_out_of_development"] is False
+
+
+def test_the_public_surface_is_sorted_and_matches_what_is_imported():
+    import lyapunov
+
+    assert lyapunov.__all__ == sorted(lyapunov.__all__), "__all__ is not sorted"
+    assert len(lyapunov.__all__) == len(set(lyapunov.__all__)), "__all__ has duplicates"
+    missing = [name for name in lyapunov.__all__ if not hasattr(lyapunov, name)]
+    assert not missing, f"__all__ names nothing imports: {missing}"
+    public = {
+        name
+        for name in dir(lyapunov)
+        if not name.startswith("_") and name not in {"annotations"}
+    }
+    submodules = {
+        "benchmarks", "certificates", "charts", "checks", "constitution",
+        "discrete_guest", "equation", "host_callback", "linalg", "plants",
+        "reference_plants", "reports", "runtime",
+    }
+    undeclared = public - set(lyapunov.__all__) - submodules
+    assert not undeclared, f"public but not in __all__: {sorted(undeclared)}"

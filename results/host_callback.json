@@ -4,7 +4,7 @@
   "proof_status": "NOT_CHECKED",
   "may_authorize": false,
   "cargo_prove_available": false,
-  "guest_manifest": "/home/user/Parameterized-Lyapunov-Stability-Runtime/guests/discrete-morphisms-v1/sp1-program/README.md",
+  "guest_manifest": "guests/discrete-morphisms-v1/sp1-program/README.md",
   "callbacks": [
     {
       "statement": {

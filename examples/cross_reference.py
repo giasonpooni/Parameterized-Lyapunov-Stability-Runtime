@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from lyapunov.benchmarks import JSPT_REPO, JSPT_SHA, run_suite
-from lyapunov.reports import write_report
+from lyapunov.reports import format_cross_reference, write_report
 
 
 def main() -> None:
@@ -29,34 +29,8 @@ def main() -> None:
     json_target.parent.mkdir(parents=True, exist_ok=True)
     json_target.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
-    lines = [
-        "# Cross-reference benchmarks",
-        "",
-        "Status: **in development**. `confirmed_out_of_development: false`.",
-        "",
-        f"JSPT pin: `{JSPT_REPO}@{JSPT_SHA}`.",
-        "",
-        "Matrices below are copied from sibling reference models or result",
-        "files. This package does not import `sensitivity`. A refusal is a",
-        "recorded outcome. These numbers are not a release certificate.",
-        "",
-        "| case | outcome | details |",
-        "| --- | --- | --- |",
-    ]
-    for case in cases:
-        details = case.details.replace("|", "\\|")
-        lines.append(f"| `{case.name}` | {case.outcome} | {details} |")
-    lines.extend(["", "## Numbers", ""])
-    for case in cases:
-        lines.append(f"### {case.name}")
-        lines.append("")
-        lines.append(f"Source: {case.source}")
-        lines.append("")
-        for key, value in case.numbers.items():
-            lines.append(f"- `{key}` = {value:.12g}")
-        lines.append("")
     md_target = root / "results" / "cross_reference.md"
-    write_report(md_target, "\n".join(lines))
+    write_report(md_target, format_cross_reference(cases, JSPT_REPO, JSPT_SHA))
     print(f"Wrote {json_target}")
     print(f"Wrote {md_target}")
     for case in cases:

@@ -7,7 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_corpus_is_integrity_only_and_has_a_needle() -> None:
-    document = json.loads((ROOT / "validation" / "invariant-corpus-v1.json").read_text())
+    document = json.loads(
+        (ROOT / "validation" / "invariant-corpus-v1.json").read_text(encoding="utf-8")
+    )
     assert document["schema"] == "invariant-corpus-v1"
     assert document["claim_scope"] == "computational-integrity-only"
     ids = {row["id"] for row in document["invariants"] + document["free_coordinates"]}

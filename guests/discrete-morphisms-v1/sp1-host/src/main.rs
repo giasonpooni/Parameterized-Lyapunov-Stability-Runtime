@@ -59,12 +59,23 @@ fn main() {
         "proof_bytes_hex": hex::encode(proof_bytes),
         "claim_scope": "computational-integrity-only",
         "backend": "sp1",
-        "proof_status": "VERIFIED",
-        "verified_by_bound_host": true,
+        // client.verify succeeded, but the guest commits (kind, held, a, b)
+        // and never commits statement_digest, so this receipt is not bound to
+        // any particular statement: attach() would compare a digest this host
+        // wrote into the JSON itself. Until the guest commits the three
+        // declared public values, setting these would be minting a claim the
+        // proof does not carry. See the "Known gap" section of HANDOFF.md.
+        "proof_status": "NOT_CHECKED",
+        "verified_by_bound_host": false,
+        "binding_gap": "guest does not commit statement_digest; receipt is not bound to a statement",
         "may_authorize": false,
     });
     std::fs::write(&args.out, serde_json::to_string_pretty(&body).unwrap()).unwrap();
-    println!("verified kind={} vk={}", args.kind, vk_digest);
+    println!(
+        "proved kind={} vk={} -- client.verify passed, but the guest commits no \
+statement_digest, so proof_status stays NOT_CHECKED",
+        args.kind, vk_digest
+    );
 }
 
 fn read_i64s(bytes: &[u8]) -> Vec<i64> {

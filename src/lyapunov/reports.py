@@ -143,6 +143,105 @@ def render_guest_figure() -> str:
 """
 
 
+def quickstart_scenario() -> tuple[list[CheckResult], list[Verdict]]:
+    """The checks and samples the quickstart pins.
+
+    Built here rather than in the example so a test can rebuild the pin
+    without running a writer, the same way the guest pins work.
+    """
+    import numpy as np
+
+    from .certificates import quadratic
+    from .charts import LinearChart
+    from .checks import (
+        check_chart_invariance,
+        check_decrease,
+        check_equation_residual,
+        check_spectrum_agrees_with_certificate,
+        check_vertices,
+    )
+    from .equation import certificate_for_plant
+    from .plants import plant_from_jacobian
+    from .reference_plants import discrete_contract, hurwitz2, two_vertex_lpv
+    from .runtime import verdict
+
+    continuous = hurwitz2()
+    discrete = discrete_contract()
+    lpv = two_vertex_lpv()
+    supplied = plant_from_jacobian(continuous.A, name="A=J(x*)")
+
+    Q = np.eye(2)
+    v_cont = certificate_for_plant(continuous, Q, name="V-hurwitz")
+    v_disc = certificate_for_plant(discrete, Q, name="V-discrete")
+    v_supplied = certificate_for_plant(supplied, Q, name="V-from-J")
+    v_lpv = quadratic(np.eye(2), name="V-lpv")
+
+    checks = [
+        check_equation_residual(continuous, v_cont, Q),
+        check_equation_residual(discrete, v_disc, Q),
+        check_spectrum_agrees_with_certificate(continuous, v_cont),
+        check_spectrum_agrees_with_certificate(discrete, v_disc),
+        check_decrease(supplied, v_supplied),
+        check_chart_invariance(
+            continuous,
+            v_cont,
+            LinearChart.scale([1000.0, 0.01], name="milli"),
+            [0.5, -0.2],
+        ),
+        check_vertices(lpv, v_lpv, include_rates=False),
+    ]
+    samples = [
+        verdict(continuous, v_cont, [0.0, 0.0]),
+        verdict(continuous, v_cont, [0.8, -0.3]),
+        verdict(lpv, v_lpv, [0.4, -0.2], theta=[0.0]),
+        verdict(lpv, v_lpv, [0.4, -0.2], theta=[1.0]),
+    ]
+    return checks, samples
+
+
+def format_quickstart() -> str:
+    """Markdown for ``results/quickstart.md``."""
+    checks, samples = quickstart_scenario()
+    return format_checks("Quickstart checks", checks) + format_verdicts(
+        "Runtime samples", samples
+    )
+
+
+def format_cross_reference(cases: list[Any], repo: str, sha: str) -> str:
+    """Markdown for ``results/cross_reference.md``.
+
+    AGENTS.md: commit the markdown the run wrote, and do not hand-edit those
+    numbers. Building it here lets a test rebuild and compare it.
+    """
+    lines = [
+        "# Cross-reference benchmarks",
+        "",
+        "Status: **in development**. `confirmed_out_of_development: false`.",
+        "",
+        f"JSPT pin: `{repo}@{sha}`.",
+        "",
+        "Matrices below are copied from sibling reference models or result",
+        "files. This package does not import `sensitivity`. A refusal is a",
+        "recorded outcome. These numbers are not a release certificate.",
+        "",
+        "| case | outcome | details |",
+        "| --- | --- | --- |",
+    ]
+    for case in cases:
+        details = case.details.replace("|", "\\|")
+        lines.append(f"| `{case.name}` | {case.outcome} | {details} |")
+    lines.extend(["", "## Numbers", ""])
+    for case in cases:
+        lines.append(f"### {case.name}")
+        lines.append("")
+        lines.append(f"Source: {case.source}")
+        lines.append("")
+        for key, value in case.numbers.items():
+            lines.append(f"- `{key}` = {value:.12g}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def write_report(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
