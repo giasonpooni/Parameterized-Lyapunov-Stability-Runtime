@@ -143,7 +143,7 @@ MUTATIONS: tuple[Mutation, ...] = (
         "12",
         "every guest kernel range checks its own result",
         "src/lyapunov/discrete_guest.py",
-        '    return _i64(x[0] * Px[0] + x[1] * Px[1], "quadratic")',
+        '    return _dot2(x[0], Px[0], x[1], Px[1], "quadratic")',
         "    return x[0] * Px[0] + x[1] * Px[1]",
     ),
     Mutation(
@@ -217,15 +217,30 @@ MUTATIONS: tuple[Mutation, ...] = (
         "23",
         "the residual gate measures the solve, not the scale of Q",
         "src/lyapunov/equation.py",
-        "    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)",
-        "    tolerance = 1e-8 * q_scale",
+        "    tolerance = min(\n        max(RESIDUAL_FLOOR_RELATIVE * q_scale, backward),\n        RESIDUAL_CAP_RELATIVE * q_scale,\n    )",
+        "    tolerance = RESIDUAL_FLOOR_RELATIVE * q_scale",
     ),
     Mutation(
         "24",
         "the residual gate keeps a meaningful forward error",
         "src/lyapunov/equation.py",
-        "    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)",
-        "    tolerance = max(1e-8 * q_scale, backward)",
+        "    tolerance = min(\n        max(RESIDUAL_FLOOR_RELATIVE * q_scale, backward),\n        RESIDUAL_CAP_RELATIVE * q_scale,\n    )",
+        "    tolerance = max(RESIDUAL_FLOOR_RELATIVE * q_scale, backward)",
+    ),
+    Mutation(
+        "26",
+        "the guest checks every operation, as the Rust twin does",
+        "src/lyapunov/discrete_guest.py",
+        '    return _add(_mul(a, b, name), _mul(c, d, name), name)',
+        '    return _i64(a * b + c * d, name)',
+    ),
+    Mutation(
+        "27",
+        "atol must be a real number, not anything float() parses",
+        "src/lyapunov/checks.py",
+        "    if isinstance(atol, bool) or not isinstance(atol, (int, float, np.floating, np.integer)):\n"
+        '        raise ValueError(f"atol must be a real number; got {type(atol).__name__}")\n',
+        "",
     ),
     Mutation(
         "25",

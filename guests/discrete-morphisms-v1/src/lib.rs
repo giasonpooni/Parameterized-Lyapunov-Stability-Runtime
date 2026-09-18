@@ -384,6 +384,17 @@ mod tests {
     }
 
     #[test]
+    fn overflow_in_a_cancelling_intermediate_is_refused() {
+        // a*b and c*d each leave i64 but their sum comes back in range.
+        // Checking only the final value would accept this; checked_mul does
+        // not. The Python twin must refuse the same input, so that a guest
+        // statement cannot hold on one side and be refused on the other.
+        let a = Mat2 { a: 1 << 62, b: 1 << 62, c: 0, d: 1 };
+        let b = Mat2 { a: 2, b: 0, c: -2, d: 1 };
+        assert_eq!(matmul(a, b).unwrap_err(), GuestError::Overflow);
+    }
+
+    #[test]
     fn non_symmetric_p_is_refused() {
         let skew = Mat2 { a: 1, b: 2, c: 0, d: 1 };
         assert_eq!(require_pd(skew).unwrap_err(), GuestError::NotSymmetric);

@@ -6,7 +6,12 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .certificates import QuadraticCertificate
-from .constitution import MAX_KRONECKER_DIM
+from .constitution import (
+    MAX_KRONECKER_DIM,
+    RESIDUAL_BACKWARD_FACTOR,
+    RESIDUAL_CAP_RELATIVE,
+    RESIDUAL_FLOOR_RELATIVE,
+)
 from .linalg import Array, as_square, require_spd, require_symmetric
 from .plants import LinearPlant
 
@@ -150,12 +155,18 @@ def solve_lyapunov(
     # meaningful forward error.
     q_scale = max(1.0, float(np.max(np.abs(Q_mat))))
     backward = (
-        64.0
+        RESIDUAL_BACKWARD_FACTOR
         * float(np.finfo(float).eps)
         * float(np.max(np.abs(operator)))
         * float(np.max(np.abs(P)))
     )
-    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)
+    # Clamped, so in practice the floor binds for well-scaled plants, the
+    # backward term binds for ||P|| roughly 1e5 to 1e7, and the cap binds
+    # beyond that.
+    tolerance = min(
+        max(RESIDUAL_FLOOR_RELATIVE * q_scale, backward),
+        RESIDUAL_CAP_RELATIVE * q_scale,
+    )
     if residual_max > tolerance:
         raise ValueError(
             f"Lyapunov residual {residual_max:.3e} exceeds tolerance "

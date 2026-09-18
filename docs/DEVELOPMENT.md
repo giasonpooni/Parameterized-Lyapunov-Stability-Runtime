@@ -21,7 +21,18 @@ Until that decision exists, treat every PASS as a development sample.
 - A is an input matrix. Non-square J from JSPT is refused as A.
 - V is quadratic. Decrease is A^T P + P A + Pdot or A^T P A - P.
 - Solve on the symmetric subspace, dim <= 24.
-- Charts push P by solves. Singular T is refused. No 1e12 cap here.
+- Charts push P by solves. Singular T is refused by a rank test, which is
+  scale invariant; there is no 1e12 cap here. Accepting a chart is not a
+  promise that the pushforward survives float64.
+- `verdict` certifies only a negative definite decrease form. A negative
+  semidefinite one is not a certificate away from the origin.
+- Tolerances may only tighten a test. A negative `atol` is refused.
+- Vertex corners are a sufficient box test for a common quadratic only; an
+  affine `P(theta)` reports `sufficient_for_box = 0`.
+- The Lyapunov residual gate measures the solve, not the scale of `Q`. Its
+  three constants are in `docs/KERNEL.md`.
+- The i64 guest refuses every operation that leaves the range, matching the
+  Rust twin operation for operation. A twin disagreement is a refuse.
 
 ## Mutation gate
 

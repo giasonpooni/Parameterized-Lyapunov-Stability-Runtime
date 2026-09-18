@@ -6,6 +6,8 @@ so that deleting the guard it protects turns it red.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -332,12 +334,46 @@ def test_a_chart_whose_pushforward_overflows_is_refused_not_silently_accepted():
 
 
 def test_there_is_still_no_condition_number_constant_anywhere():
+    # The forbidden thing is a CONDITION-NUMBER cap, JSPT's 1e12. Not any
+    # constant whose name contains "cap": RESIDUAL_CAP_RELATIVE caps a
+    # residual against ||Q|| and is recorded in docs/KERNEL.md.
     import lyapunov
     from lyapunov import constitution
 
     names = [n for n in dir(constitution) if not n.startswith("_")]
-    assert not [n for n in names if "COND" in n.upper() or "CAP" in n.upper()], names
+    assert not [n for n in names if "COND" in n.upper() or "KAPPA" in n.upper()], names
     assert not [n for n in dir(lyapunov) if "MAX_CONDITION" in n.upper()]
+    # and nothing in the package GATES on a condition number. Parse the code
+    # rather than grep the text: charts.py and docs both discuss JSPT's 1e12
+    # cap in prose precisely to say it is absent here.
+    import ast
+
+    offenders: list[str] = []
+    for path in (Path(lyapunov.__file__).parent).glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and node.attr == "cond":
+                offenders.append(f"{path.name}:{node.lineno} computes a condition number")
+            if isinstance(node, ast.Constant) and node.value == 1e12:
+                offenders.append(f"{path.name}:{node.lineno} hardcodes 1e12")
+    assert not offenders, offenders
+
+
+def test_the_residual_gate_constants_are_frozen_and_recorded():
+    from lyapunov import constitution
+
+    assert constitution.RESIDUAL_FLOOR_RELATIVE == 1e-8
+    assert constitution.RESIDUAL_CAP_RELATIVE == 1e-6
+    assert constitution.RESIDUAL_BACKWARD_FACTOR == 64.0
+    kernel = (Path(__file__).resolve().parents[1] / "docs" / "KERNEL.md").read_text(
+        encoding="utf-8"
+    )
+    for name in (
+        "RESIDUAL_FLOOR_RELATIVE",
+        "RESIDUAL_CAP_RELATIVE",
+        "RESIDUAL_BACKWARD_FACTOR",
+    ):
+        assert name in kernel, f"{name} decides whether a certificate is issued"
 
 
 # --- a refusal must mean the maths failed, not that the units are small ---
@@ -446,3 +482,25 @@ def test_a_well_conditioned_non_diagonal_chart_still_passes_the_invariance_check
     check_chart_invariance(
         plant, solve_lyapunov(plant.A, time=plant.time), chart, [0.3, -1.1]
     ).raise_for_failure()
+
+
+def test_the_guest_refuses_an_overflow_that_cancels():
+    # Each product leaves i64 but the sum comes back in range. Checking only
+    # the value a compound expression ends on accepts this; lib.rs uses
+    # checked_mul per operation and refuses at the first product. A statement
+    # must not hold on one twin and be refused on the other.
+    big = 2**62
+    assert big * 2 > (1 << 63) - 1
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        mul2(((big, big), (0, 1)), ((2, 0), (-2, 1)))
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        guest_quadratic(((1, 0), (0, -1)), (2**32, 2**32))
+
+
+def test_atol_must_be_a_real_number():
+    # float("0.5") parses, so a coercion-first guard silently accepted a
+    # string where the arithmetic would previously have raised TypeError.
+    plant, cert = hurwitz2(), quadratic(np.eye(2), name="P=I")
+    for bad in ("0.5", "-1", None, [0.0], True):
+        with pytest.raises(ValueError, match="atol"):
+            check_decrease(plant, cert, atol=bad)

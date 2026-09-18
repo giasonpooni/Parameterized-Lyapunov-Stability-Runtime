@@ -39,17 +39,39 @@ def _as_i64(value: int | float, name: str) -> int:
 
 
 def _i64(value: int, name: str) -> int:
-    """Range-check a computed value.
+    """Range-check one operation's result.
 
-    Python integers are unbounded; the Rust twin is ``i64`` and wraps. A
-    result outside the range would make the two disagree, and
-    docs/DISCRETE-GUEST-v1.md says a disagreement with the integer twin is a
-    refuse, not a repair. So refuse here rather than return a bignum the
-    guest could never reproduce.
+    Python integers are unbounded; the Rust twin is ``i64``. A result outside
+    the range would make the two disagree, and docs/DISCRETE-GUEST-v1.md says
+    a disagreement with the integer twin is a refuse, not a repair. So refuse
+    here rather than return a bignum the guest could never reproduce.
+
+    This must wrap EVERY operation, not just the value a compound expression
+    ends on. ``lib.rs`` uses ``checked_mul`` and ``checked_add`` per operation,
+    so it refuses as soon as any intermediate leaves the range. Checking only
+    the final value lets a pair of out-of-range products cancel back into
+    range and be accepted here while Rust refuses them.
     """
     if value < I64_MIN or value > I64_MAX:
-        raise GuestRefuse(f"{name} overflows i64 ({value}); the Rust twin would wrap")
+        raise GuestRefuse(f"{name} overflows i64 ({value}); the Rust twin refuses it")
     return value
+
+
+def _mul(a: int, b: int, name: str) -> int:
+    return _i64(a * b, name)
+
+
+def _add(a: int, b: int, name: str) -> int:
+    return _i64(a + b, name)
+
+
+def _sub_i(a: int, b: int, name: str) -> int:
+    return _i64(a - b, name)
+
+
+def _dot2(a: int, b: int, c: int, d: int, name: str) -> int:
+    """``a*b + c*d``, refusing on either product or on the sum."""
+    return _add(_mul(a, b, name), _mul(c, d, name), name)
 
 
 def _mat2(values: list[list[int]], name: str) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -79,21 +101,21 @@ def _vec3(values: list[int], name: str) -> tuple[int, int, int]:
 
 def _sub(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
     return (
-        _i64(a[0] - b[0], "edge[0]"),
-        _i64(a[1] - b[1], "edge[1]"),
-        _i64(a[2] - b[2], "edge[2]"),
+        _sub_i(a[0], b[0], "edge[0]"),
+        _sub_i(a[1], b[1], "edge[1]"),
+        _sub_i(a[2], b[2], "edge[2]"),
     )
 
 
 def _dot(a: tuple[int, int, int], b: tuple[int, int, int]) -> int:
-    return _i64(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], "dot")
+    return _add(_dot2(a[0], b[0], a[1], b[1], "dot"), _mul(a[2], b[2], "dot"), "dot")
 
 
 def _cross(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
     return (
-        _i64(a[1] * b[2] - a[2] * b[1], "cross[0]"),
-        _i64(a[2] * b[0] - a[0] * b[2], "cross[1]"),
-        _i64(a[0] * b[1] - a[1] * b[0], "cross[2]"),
+        _sub_i(_mul(a[1], b[2], "cross[0]"), _mul(a[2], b[1], "cross[0]"), "cross[0]"),
+        _sub_i(_mul(a[2], b[0], "cross[1]"), _mul(a[0], b[2], "cross[1]"), "cross[1]"),
+        _sub_i(_mul(a[0], b[1], "cross[2]"), _mul(a[1], b[0], "cross[2]"), "cross[2]"),
     )
 
 
@@ -110,7 +132,7 @@ def _require_pd(P: tuple[tuple[int, int], tuple[int, int]], name: str = "P") -> 
 
 
 def det2(M: tuple[tuple[int, int], tuple[int, int]]) -> int:
-    return _i64(M[0][0] * M[1][1] - M[0][1] * M[1][0], "det")
+    return _sub_i(_mul(M[0][0], M[1][1], "det"), _mul(M[0][1], M[1][0], "det"), "det")
 
 
 def mul2(
@@ -119,12 +141,12 @@ def mul2(
 ) -> tuple[tuple[int, int], tuple[int, int]]:
     return (
         (
-            _i64(A[0][0] * B[0][0] + A[0][1] * B[1][0], "mul[0,0]"),
-            _i64(A[0][0] * B[0][1] + A[0][1] * B[1][1], "mul[0,1]"),
+            _dot2(A[0][0], B[0][0], A[0][1], B[1][0], "mul[0,0]"),
+            _dot2(A[0][0], B[0][1], A[0][1], B[1][1], "mul[0,1]"),
         ),
         (
-            _i64(A[1][0] * B[0][0] + A[1][1] * B[1][0], "mul[1,0]"),
-            _i64(A[1][0] * B[0][1] + A[1][1] * B[1][1], "mul[1,1]"),
+            _dot2(A[1][0], B[0][0], A[1][1], B[1][0], "mul[1,0]"),
+            _dot2(A[1][0], B[0][1], A[1][1], B[1][1], "mul[1,1]"),
         ),
     )
 
@@ -135,21 +157,24 @@ def transpose(M: tuple[tuple[int, int], tuple[int, int]]) -> tuple[tuple[int, in
 
 def apply2(M: tuple[tuple[int, int], tuple[int, int]], x: tuple[int, int]) -> tuple[int, int]:
     return (
-        _i64(M[0][0] * x[0] + M[0][1] * x[1], "apply[0]"),
-        _i64(M[1][0] * x[0] + M[1][1] * x[1], "apply[1]"),
+        _dot2(M[0][0], x[0], M[0][1], x[1], "apply[0]"),
+        _dot2(M[1][0], x[0], M[1][1], x[1], "apply[1]"),
     )
 
 
 def quadratic(P: tuple[tuple[int, int], tuple[int, int]], x: tuple[int, int]) -> int:
     Px = apply2(P, x)
-    return _i64(x[0] * Px[0] + x[1] * Px[1], "quadratic")
+    return _dot2(x[0], Px[0], x[1], Px[1], "quadratic")
 
 
 def inv_unimodular(T: tuple[tuple[int, int], tuple[int, int]]) -> tuple[tuple[int, int], tuple[int, int]]:
     d = det2(T)
     if d not in (1, -1):
         raise GuestRefuse(f"T must be unimodular (det ±1), got det={d}")
-    return ((d * T[1][1], -d * T[0][1]), (-d * T[1][0], d * T[0][0]))
+    return (
+        (_mul(d, T[1][1], "inv[0,0]"), _mul(-d, T[0][1], "inv[0,1]")),
+        (_mul(-d, T[1][0], "inv[1,0]"), _mul(d, T[0][0], "inv[1,1]")),
+    )
 
 
 def push_P(
@@ -169,12 +194,12 @@ def discrete_decrease_form(
     AtP = mul2(transpose(A), P)
     return (
         (
-            _i64(AtP[0][0] * A[0][0] + AtP[0][1] * A[1][0] - P[0][0], "decrease[0,0]"),
-            _i64(AtP[0][0] * A[0][1] + AtP[0][1] * A[1][1] - P[0][1], "decrease[0,1]"),
+            _sub_i(_dot2(AtP[0][0], A[0][0], AtP[0][1], A[1][0], "decrease[0,0]"), P[0][0], "decrease[0,0]"),
+            _sub_i(_dot2(AtP[0][0], A[0][1], AtP[0][1], A[1][1], "decrease[0,1]"), P[0][1], "decrease[0,1]"),
         ),
         (
-            _i64(AtP[1][0] * A[0][0] + AtP[1][1] * A[1][0] - P[1][0], "decrease[1,0]"),
-            _i64(AtP[1][0] * A[0][1] + AtP[1][1] * A[1][1] - P[1][1], "decrease[1,1]"),
+            _sub_i(_dot2(AtP[1][0], A[0][0], AtP[1][1], A[1][0], "decrease[1,0]"), P[1][0], "decrease[1,0]"),
+            _sub_i(_dot2(AtP[1][0], A[0][1], AtP[1][1], A[1][1], "decrease[1,1]"), P[1][1], "decrease[1,1]"),
         ),
     )
 
@@ -183,7 +208,12 @@ def jacobi_step(j_prev: int, j: int, k: int, h2: int) -> int:
     if k not in (0, 1, -1):
         raise GuestRefuse("K must be 0, 1, or -1")
     h2 = _as_i64(h2, "h2")
-    return _i64(2 * j - j_prev - h2 * k * j, "jacobi_step")
+    curvature = _mul(_mul(h2, k, "jacobi_step"), j, "jacobi_step")
+    return _sub_i(
+        _sub_i(_mul(2, j, "jacobi_step"), j_prev, "jacobi_step"),
+        curvature,
+        "jacobi_step",
+    )
 
 
 def jacobi_trace(j0: int, j1: int, k: int, h2: int, steps: int) -> list[int]:

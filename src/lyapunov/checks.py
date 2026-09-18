@@ -36,6 +36,8 @@ def _require_tightening(atol: float) -> float:
     law. A negative ``atol`` would turn a refusal into a pass, so it is
     refused rather than clipped.
     """
+    if isinstance(atol, bool) or not isinstance(atol, (int, float, np.floating, np.integer)):
+        raise ValueError(f"atol must be a real number; got {type(atol).__name__}")
     value = float(atol)
     if not np.isfinite(value) or value < 0.0:
         raise ValueError(f"atol must be finite and non-negative; got {atol!r}")
@@ -79,11 +81,14 @@ def check_vertices(
 ) -> CheckResult:
     """Evaluate positivity and decrease at every declared (theta, theta_dot) corner.
 
-    A constant ``P`` makes the decrease form affine in ``theta``, so the
-    corners are a sufficient common-quadratic test. An ``AffineCertificate``
-    makes it quadratic in ``theta``; the corners are then only the declared
-    sample set, not a sufficient test for the box. That limit is reported,
-    never hidden.
+    With a constant ``P`` the largest eigenvalue of the decrease family is
+    convex in ``theta``, so it attains its box maximum at a corner and the
+    corners are a sufficient common-quadratic test. That holds in discrete
+    time too, where the form is quadratic in ``theta`` but the maximum is
+    still a maximum of convex functions -- the degree in ``theta`` is not
+    what decides it. With an ``AffineCertificate`` the convexity is lost and
+    the corners are only the declared sample set, not a sufficient test for
+    the box. That limit is reported, never hidden.
     """
     atol = _require_tightening(atol)
     worst = -np.inf

@@ -30,9 +30,22 @@ Add freely behind them. Do not rename to sound like JSPT or FSRT.
 - `SYMMETRY_ATOL = 1e-12`
 - `MIN_DECREASE_MARGIN = 0.0`
 - `MAX_KRONECKER_DIM = 24` for the dense solve only
+- `RESIDUAL_FLOOR_RELATIVE = 1e-8`
+- `RESIDUAL_CAP_RELATIVE = 1e-6`
+- `RESIDUAL_BACKWARD_FACTOR = 64.0`
 - solve, do not invert
 - no clip / nearest-PSD
 - no local condition-number cap
+
+The last three are the Lyapunov solve's residual gate: the backward-error
+estimate `FACTOR * eps * ||operator|| * ||P||`, clamped between
+`FLOOR * ||Q||` and `CAP * ||Q||`. They decide whether a certificate is
+issued, so they are recorded here rather than left inline. The cap means a
+badly scaled plant is refused with "not resolvable in float64 at this
+scale" even when its exact certificate is correct: the residual cannot
+distinguish a correct `P` from a wrong one once the operator is that
+ill-conditioned, so the instrument refuses rather than accept what it
+cannot check.
 
 ## Ledger
 
