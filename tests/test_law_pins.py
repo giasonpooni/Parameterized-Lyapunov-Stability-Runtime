@@ -123,6 +123,24 @@ def test_negative_atol_cannot_turn_a_refusal_into_a_pass():
         check_vertices(two_vertex_lpv(), cert, atol=-10.0)
 
 
+def test_check_vertices_refuses_a_negative_atol_before_evaluating_a_corner(monkeypatch):
+    # check_vertices forwards atol to check_decrease, whose own guard would
+    # raise anyway, so the test above passes even if check_vertices loses its
+    # guard. Patch check_decrease out so only check_vertices' guard can fire.
+    import lyapunov.checks as checks_module
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError(
+            "check_vertices must refuse a negative atol before evaluating any corner"
+        )
+
+    monkeypatch.setattr(checks_module, "check_decrease", boom)
+    with pytest.raises(ValueError, match="atol"):
+        checks_module.check_vertices(
+            two_vertex_lpv(), quadratic(np.eye(2), name="P=I"), atol=-1.0
+        )
+
+
 def test_a_positive_atol_only_tightens():
     plant, cert = hurwitz2(), quadratic(np.eye(2), name="P=I")
     assert check_decrease(plant, cert).passed
