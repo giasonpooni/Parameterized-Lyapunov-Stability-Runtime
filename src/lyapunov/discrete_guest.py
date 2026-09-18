@@ -232,15 +232,42 @@ def coplanar_star(
     vertex: tuple[int, int, int],
     neighbors: tuple[tuple[int, int, int], ...],
 ) -> tuple[bool, tuple[int, int, int], list[int]]:
+    """Sampled coplanarity of a star, as a function of the star itself.
+
+    The normal comes from the first pair of spokes that is not collinear,
+    scanned in the order given, rather than from the first two whatever they
+    are. Taking the first two made the SAME star refuse or not depending on
+    how its spokes happened to be listed, which is an artifact of the
+    listing and not a property of the geometry.
+
+    ``held`` does not depend on which non-collinear pair is chosen: it holds
+    exactly when every spoke lies in the plane through ``vertex``, and any
+    such pair spans that plane. Every spoke is tested, including the two
+    that define the normal, which contribute exactly zero by construction.
+    The magnitude of ``defect`` does depend on the pair, because the normal
+    is not normalised -- it cannot be, in exact integers -- so the
+    contract's guarantee is determinism for a given star, not a length.
+    """
     if len(neighbors) < 3 or len(neighbors) > 8:
         raise GuestRefuse("star must have 3..8 neighbors")
-    e0 = _sub(neighbors[0], vertex)
-    e1 = _sub(neighbors[1], vertex)
-    normal = _cross(e0, e1)
+    edges = [_sub(p, vertex) for p in neighbors]
+    for index, edge in enumerate(edges):
+        if edge == (0, 0, 0):
+            raise GuestRefuse(
+                f"spoke {index} coincides with the centre; the star is degenerate"
+            )
+    normal = (0, 0, 0)
+    for i in range(len(edges)):
+        for j in range(i + 1, len(edges)):
+            candidate = _cross(edges[i], edges[j])
+            if candidate != (0, 0, 0):
+                normal = candidate
+                break
+        if normal != (0, 0, 0):
+            break
     if normal == (0, 0, 0):
-        raise GuestRefuse("first two edges are collinear; star is degenerate")
-    # >=3 spokes and a non-degenerate first pair, so `triples` is never empty.
-    triples = [_dot(_sub(p, vertex), normal) for p in neighbors[2:]]
+        raise GuestRefuse("every spoke is collinear; the star is degenerate")
+    triples = [_dot(edge, normal) for edge in edges]
     held = all(t == 0 for t in triples)
     return held, normal, triples
 
@@ -268,6 +295,11 @@ def star_from_panel_graph(
             nbr_idx.append(i)
     if len(set(nbr_idx)) != len(nbr_idx):
         raise GuestRefuse("duplicate spoke in panel graph")
+    # Canonical order, so the statement is a function of the declared graph
+    # and not of the order its edges happen to be listed in. Without this the
+    # same panel graph produced eleven different digests across the twenty
+    # four orderings of a four-spoke edge list.
+    nbr_idx.sort()
     v = _vec3(vertices[center], "vertices[center]")
     neighbors = tuple(_vec3(vertices[i], f"vertices[{i}]") for i in nbr_idx)
     return v, neighbors
@@ -426,7 +458,10 @@ def run_developable_defect(
         proof_status="NOT_CHECKED",
         host_oracle_gap=None,
         notes=(
-            "Sampled K proxy on a panel graph. held iff defect=0. "
+            "Sampled K proxy on a panel graph. Spokes are taken in canonical "
+            "index order and the normal from the first non-collinear pair, so "
+            "the statement depends on the graph and not on the edge listing. "
+            "held iff defect=0. "
             "Public commit is id/held/digest. Coordinates stay private to the guest. "
             "Not an IFC entity. Do not import into gat."
         ),

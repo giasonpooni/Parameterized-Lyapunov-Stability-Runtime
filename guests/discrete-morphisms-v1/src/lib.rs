@@ -190,22 +190,43 @@ fn vcross(a: Vec3, b: Vec3) -> R<Vec3> {
 /// Coplanar star: sufficient for discrete K=0. Not a building stamp.
 ///
 /// Returns `(held, normal, defect)` where `defect` is `max |(p - v) . n|`
-/// over the spokes past the first pair. `held` iff the defect is zero. This
-/// is a sampled defect, never a `sum(theta) = 2*pi` angle sum.
+/// over EVERY spoke. `held` iff the defect is zero. This is a sampled
+/// defect, never a `sum(theta) = 2*pi` angle sum.
+///
+/// The normal comes from the first pair of spokes that is not collinear,
+/// not from the first two whatever they are: taking the first two made the
+/// same star refuse or not depending on how its spokes were listed. `held`
+/// does not depend on which non-collinear pair is chosen, since any such
+/// pair spans the same plane through `vertex`.
 pub fn developable_star(vertex: Vec3, neighbors: &[Vec3]) -> R<(bool, Vec3, i64)> {
     if neighbors.len() < 3 || neighbors.len() > 8 {
         return Err(GuestError::BadStar);
     }
-    let e0 = vsub(neighbors[0], vertex)?;
-    let e1 = vsub(neighbors[1], vertex)?;
-    let n = vcross(e0, e1)?;
+    let mut edges = Vec::with_capacity(neighbors.len());
+    for p in neighbors {
+        let e = vsub(*p, vertex)?;
+        if e.x == 0 && e.y == 0 && e.z == 0 {
+            return Err(GuestError::DegenerateStar);
+        }
+        edges.push(e);
+    }
+    let mut n = Vec3 { x: 0, y: 0, z: 0 };
+    'outer: for i in 0..edges.len() {
+        for j in (i + 1)..edges.len() {
+            let candidate = vcross(edges[i], edges[j])?;
+            if !(candidate.x == 0 && candidate.y == 0 && candidate.z == 0) {
+                n = candidate;
+                break 'outer;
+            }
+        }
+    }
     if n.x == 0 && n.y == 0 && n.z == 0 {
         return Err(GuestError::DegenerateStar);
     }
     let mut max_abs = 0_i64;
     let mut held = true;
-    for p in &neighbors[2..] {
-        let t = vdot(vsub(*p, vertex)?, n)?;
+    for e in &edges {
+        let t = vdot(*e, n)?;
         let a = t.checked_abs().ok_or(GuestError::Overflow)?;
         if a > max_abs {
             max_abs = a;
@@ -249,6 +270,9 @@ pub fn star_from_panel_graph(
     if seen.len() != spokes.len() {
         return Err(GuestError::DuplicateSpoke);
     }
+    // Canonical order, so the statement is a function of the declared graph
+    // and not of the order its edges happen to be listed in.
+    spokes.sort_unstable();
     Ok((vertices[center], spokes.iter().map(|&i| vertices[i]).collect()))
 }
 
@@ -343,6 +367,47 @@ mod tests {
         let (held, _, defect) = developable_defect(&verts, &STAR_EDGES, 0).unwrap();
         assert!(!held);
         assert!(defect > 0);
+    }
+
+    #[test]
+    fn defect_is_the_same_for_every_edge_ordering() {
+        let verts = [
+            Vec3 { x: 0, y: 0, z: 0 },
+            Vec3 { x: 2, y: 0, z: 0 },
+            Vec3 { x: 0, y: 3, z: 0 },
+            Vec3 { x: -1, y: 0, z: 0 },
+            Vec3 { x: 0, y: -5, z: 1 },
+        ];
+        let orderings = [
+            [(0, 1), (0, 2), (0, 3), (0, 4)],
+            [(0, 4), (0, 3), (0, 2), (0, 1)],
+            [(0, 3), (0, 1), (0, 4), (0, 2)],
+            [(0, 2), (0, 4), (0, 1), (0, 3)],
+        ];
+        let first = developable_defect(&verts, &orderings[0], 0).unwrap();
+        for edges in &orderings[1..] {
+            assert_eq!(developable_defect(&verts, edges, 0).unwrap(), first);
+        }
+        assert!(!first.0);
+    }
+
+    #[test]
+    fn a_spoke_on_the_centre_is_refused_wherever_it_is_listed() {
+        let verts = [
+            Vec3 { x: 0, y: 0, z: 0 },
+            Vec3 { x: 0, y: 0, z: 0 },
+            Vec3 { x: 1, y: 0, z: 0 },
+            Vec3 { x: 0, y: 1, z: 0 },
+        ];
+        for edges in [
+            [(0, 1), (0, 2), (0, 3)],
+            [(0, 2), (0, 3), (0, 1)],
+        ] {
+            assert_eq!(
+                developable_defect(&verts, &edges, 0).unwrap_err(),
+                GuestError::DegenerateStar
+            );
+        }
     }
 
     #[test]

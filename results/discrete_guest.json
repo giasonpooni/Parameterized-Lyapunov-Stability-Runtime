@@ -224,18 +224,20 @@
         ],
         "triples": [
           0,
+          0,
+          0,
           0
         ]
       },
       "held": true,
       "proof_status": "NOT_CHECKED",
       "host_oracle_gap": null,
-      "notes": "Sampled K proxy on a panel graph. held iff defect=0. Public commit is id/held/digest. Coordinates stay private to the guest. Not an IFC entity. Do not import into gat.",
-      "statement_digest": "42c6c9bcc75f26439f097c72f1c11d209563c60c29191400a066beb082ee5a67",
+      "notes": "Sampled K proxy on a panel graph. Spokes are taken in canonical index order and the normal from the first non-collinear pair, so the statement depends on the graph and not on the edge listing. held iff defect=0. Public commit is id/held/digest. Coordinates stay private to the guest. Not an IFC entity. Do not import into gat.",
+      "statement_digest": "e1f14c1b8d14497d8ecc0ef4cd31281d772fab744112d5695ab7b6a2278f3c78",
       "public_commit": {
         "statement_id": "developable-defect-v1",
         "held": true,
-        "statement_digest": "42c6c9bcc75f26439f097c72f1c11d209563c60c29191400a066beb082ee5a67"
+        "statement_digest": "e1f14c1b8d14497d8ecc0ef4cd31281d772fab744112d5695ab7b6a2278f3c78"
       },
       "may_authorize": false,
       "traceable": false

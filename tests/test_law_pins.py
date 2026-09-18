@@ -504,3 +504,64 @@ def test_atol_must_be_a_real_number():
     for bad in ("0.5", "-1", None, [0.0], True):
         with pytest.raises(ValueError, match="atol"):
             check_decrease(plant, cert, atol=bad)
+
+
+# --- a guest statement is about the declared object, not how it was listed ---
+
+
+def test_the_defect_statement_is_a_function_of_the_graph_not_the_edge_listing():
+    import itertools
+
+    from lyapunov.discrete_guest import run_developable_defect
+
+    vertices = [[0, 0, 0], [2, 0, 0], [0, 3, 0], [-1, 0, 0], [0, -5, 1]]
+    base = [[0, 1], [0, 2], [0, 3], [0, 4]]
+    outcomes = set()
+    for ordering in itertools.permutations(base):
+        statement = run_developable_defect(
+            vertices=vertices, edges=[list(e) for e in ordering], center=0
+        )
+        outcomes.add(
+            (
+                statement.held,
+                statement.outputs["defect"],
+                tuple(statement.outputs["normal"]),
+            )
+        )
+    assert len(outcomes) == 1, f"the same panel graph gave {len(outcomes)} answers"
+    held, defect, _ = outcomes.pop()
+    assert held is False and defect > 0
+
+
+def test_a_spoke_on_the_centre_is_refused_wherever_it_is_listed():
+    from lyapunov.discrete_guest import run_developable_defect
+
+    vertices = [[0, 0, 0], [0, 0, 0], [1, 0, 0], [0, 1, 0]]
+    for edges in ([[0, 1], [0, 2], [0, 3]], [[0, 2], [0, 3], [0, 1]]):
+        with pytest.raises(GuestRefuse, match="coincides with the centre"):
+            run_developable_defect(vertices=vertices, edges=edges, center=0)
+
+
+def test_the_defect_is_measured_over_every_spoke():
+    from lyapunov.discrete_guest import FIXTURE_DEFECT, run_developable_defect
+
+    statement = run_developable_defect(**FIXTURE_DEFECT)
+    spokes = len(FIXTURE_DEFECT["edges"])
+    assert len(statement.outputs["triples"]) == spokes, (
+        "the spokes defining the normal must be measured too, not skipped"
+    )
+
+
+def test_a_star_whose_first_two_spokes_are_collinear_is_still_decided():
+    # Spokes 1 and 2 are anti-parallel, so the first pair in canonical order
+    # spans nothing. Taking the first two whatever they are refused this
+    # perfectly good planar star; the first NON-collinear pair decides it.
+    from lyapunov.discrete_guest import run_developable_defect
+
+    statement = run_developable_defect(
+        vertices=[[0, 0, 0], [1, 0, 0], [-2, 0, 0], [0, 1, 0]],
+        edges=[[0, 1], [0, 2], [0, 3]],
+        center=0,
+    )
+    assert statement.held is True
+    assert statement.outputs["defect"] == 0

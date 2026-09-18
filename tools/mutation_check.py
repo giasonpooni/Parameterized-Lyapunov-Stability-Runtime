@@ -243,6 +243,27 @@ MUTATIONS: tuple[Mutation, ...] = (
         "",
     ),
     Mutation(
+        "28",
+        "the spoke order is canonical, not the edge listing order",
+        "src/lyapunov/discrete_guest.py",
+        "    nbr_idx.sort()\n",
+        "",
+    ),
+    Mutation(
+        "29",
+        "the normal comes from the first NON-COLLINEAR pair",
+        "src/lyapunov/discrete_guest.py",
+        "            candidate = _cross(edges[i], edges[j])",
+        "            candidate = _cross(edges[0], edges[1])",
+    ),
+    Mutation(
+        "30",
+        "a spoke on the centre is degenerate wherever it is listed",
+        "src/lyapunov/discrete_guest.py",
+        "        if edge == (0, 0, 0):",
+        "        if False:",
+    ),
+    Mutation(
         "25",
         "a chart push refusal is reported, not raised, by a check",
         "src/lyapunov/checks.py",
@@ -295,6 +316,16 @@ def _purge_bytecode(sandbox: Path) -> None:
         shutil.rmtree(cache, ignore_errors=True)
 
 
+class MutationUnusable(RuntimeError):
+    """The mutated tree could not run its tests at all.
+
+    A mutation that breaks collection -- an IndentationError from deleting
+    the body of a block, say -- produces no FAILED lines. Read naively that
+    is indistinguishable from "no test noticed", so it would be reported as
+    an unpinned law. It is the opposite: nothing was measured. Say so.
+    """
+
+
 def _failures(sandbox: Path) -> list[str]:
     """Test ids that failed, running the sandbox against the sandbox."""
     _purge_bytecode(sandbox)
@@ -306,13 +337,26 @@ def _failures(sandbox: Path) -> list[str]:
              "PYTHONPATH": str(sandbox / "src"),
              "PYTHONDONTWRITEBYTECODE": "1"},
     )
-    return sorted(
+    failed = sorted(
         {
             line.split("::")[1].split()[0]
             for line in result.stdout.splitlines()
             if line.startswith("FAILED") and "::" in line
         }
     )
+    # pytest: 0 all passed, 1 tests failed. Anything else is collection
+    # interrupted, internal error, usage error or nothing collected.
+    if result.returncode not in (0, 1) and not failed:
+        detail = next(
+            (
+                line
+                for line in reversed(result.stdout.splitlines())
+                if "error" in line.lower()
+            ),
+            f"pytest exit {result.returncode}",
+        )
+        raise MutationUnusable(detail.strip())
+    return failed
 
 
 def _confirm_sandbox_is_active(sandbox: Path) -> None:
@@ -380,6 +424,12 @@ def main() -> int:
             path.write_text(original.replace(mutation.old, mutation.new, 1), encoding="utf-8")
             try:
                 caught = [name for name in _failures(sandbox) if name not in baseline]
+            except MutationUnusable as exc:
+                print(f"  UNUSABLE {mutation.label()}")
+                print(f"           the mutated tree cannot run its tests: {exc}")
+                print("           nothing was measured; rewrite the mutation so it stays valid")
+                escaped.append(mutation)
+                continue
             finally:
                 path.write_text(original, encoding="utf-8")
             if caught:

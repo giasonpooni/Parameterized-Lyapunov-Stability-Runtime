@@ -66,6 +66,12 @@ Two rules when a mutation escapes:
   appeared somewhere in the file, so a renamed table row slipped past.
 - A mutation that no longer applies is reported as stale and counts as an
   escape. Update the mutation to match the code; do not drop it.
+- A mutation that breaks collection is reported as `UNUSABLE`, not as an
+  escape. Deleting the body of a block leaves an `IndentationError`, pytest
+  then emits no `FAILED` lines, and "no test noticed" would read exactly
+  like "nothing was pinned" when in fact nothing was measured. Rewrite the
+  mutation so the tree stays valid -- negate a condition rather than delete
+  a block.
 
 Mutations that delete the same text leave the file at an identical size,
 so `__pycache__` is purged and `PYTHONDONTWRITEBYTECODE` is set on every
