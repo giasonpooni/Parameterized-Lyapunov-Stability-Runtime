@@ -72,3 +72,13 @@ The Rust twin is not a CI dependency and needs no `cargo-prove`:
 ```
 cd guests/discrete-morphisms-v1 && cargo test && cargo run
 ```
+
+The mutation gate proves the law tests are load bearing. It never writes
+inside the repository:
+
+```
+uv run --python 3.13 --dev python tools/mutation_check.py
+```
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). An escaped mutation is an
+unpinned law: write the test, do not delete the mutation.

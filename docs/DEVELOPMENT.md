@@ -6,7 +6,8 @@ development.
 
 ## What "out of development" would require
 
-- The NumPy certificate identities below pinned by tests on `main`.
+- The NumPy certificate identities below pinned by tests on `main`, and
+  every one of them proved load-bearing by `tools/mutation_check.py`.
 - Cross-reference cases regenerated from declared sibling matrices,
   with JSON and markdown in `results/` matching the runner.
 - A decision, recorded in HANDOFF, that no further first-release
@@ -21,6 +22,45 @@ Until that decision exists, treat every PASS as a development sample.
 - V is quadratic. Decrease is A^T P + P A + Pdot or A^T P A - P.
 - Solve on the symmetric subspace, dim <= 24.
 - Charts push P by solves. Singular T is refused. No 1e12 cap here.
+
+## Mutation gate
+
+A green suite proves the tests ran. It does not prove they are load
+bearing. `tools/mutation_check.py` applies, one at a time, the exact change
+each law forbids, and requires the suite to go red:
+
+```bash
+uv run --python 3.13 --dev python tools/mutation_check.py
+uv run --python 3.13 --dev python tools/mutation_check.py --list
+uv run --python 3.13 --dev python tools/mutation_check.py --working-tree
+```
+
+Exit status is 0 only when every mutation is caught. Each mutation runs in
+a throwaway copy of the tree; the script never writes inside the
+repository, and it refuses to report anything unless the copy's baseline is
+green, because a red baseline makes every result noise.
+
+The list covers the code laws, the pins and the documents. `docs/GATE.md`
+went stale at "three discrete identities" because no test read it, so
+mutations 17 to 21 hand-edit a pin, restore the stale count, and rename,
+reorder and mis-contract a registry table.
+
+Two rules when a mutation escapes:
+
+- Do not delete the mutation. An escaped mutation is an unpinned law;
+  write the test that catches it. Two escapes were found this way. One
+  test claimed to pin the guest's `i64` range check but its input
+  overflowed in an inner helper whose own guard fired first. Another
+  claimed to pin the statement registry but only asked whether an id
+  appeared somewhere in the file, so a renamed table row slipped past.
+- A mutation that no longer applies is reported as stale and counts as an
+  escape. Update the mutation to match the code; do not drop it.
+
+Mutations that delete the same text leave the file at an identical size,
+so `__pycache__` is purged and `PYTHONDONTWRITEBYTECODE` is set on every
+run. Without that, CPython's `(mtime, size)` cache key can match across two
+mutations written in the same mtime tick and the run silently tests the
+previous mutation's code, which reports an escaped law as caught.
 
 ## Recursive benchmark rule
 
