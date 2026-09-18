@@ -144,10 +144,31 @@ def check_chart_invariance(
     atol: float = 1e-10,
     rtol: float = 1e-9,
 ) -> CheckResult:
-    """V and the scalar decrease must be invariant under x' = T x."""
+    """V and the scalar decrease must be invariant under x' = T x.
+
+    A chart this package accepts can still push a certificate out of float64:
+    at a high condition number the computed ``P'`` may not be positive
+    definite even though the exact congruence is. That is a refusal, and it
+    is reported here as a failed check rather than raised, so a caller
+    sweeping charts sees it the same way as any other failure. The refusal
+    itself still stands in ``push_certificate``.
+    """
     sample = evaluate(plant, certificate, x)
-    primed_plant = push_plant(plant, chart)
-    primed_cert = push_certificate(certificate, chart)
+    try:
+        primed_plant = push_plant(plant, chart)
+        primed_cert = push_certificate(certificate, chart)
+    except ValueError as exc:
+        return CheckResult(
+            name=f"chart:{plant.name}:{chart.name}",
+            passed=False,
+            residual=float("inf"),
+            details=f"chart push refused: {exc}",
+            extra={
+                "value_gap": float("inf"),
+                "decrease_gap": float("inf"),
+                "P_frobenius_ratio": float("nan"),
+            },
+        )
     x_prime = chart.T @ np.asarray(x, dtype=float)
     primed = evaluate(primed_plant, primed_cert, x_prime)
     value_gap = abs(sample.value - primed.value)

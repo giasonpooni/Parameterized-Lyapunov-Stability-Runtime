@@ -80,6 +80,15 @@ every float64 implementation must choose a threshold. NumPy's is
 epsilon rather than naming a policy number, which is why it is not
 JSPT's `MAX_CONDITION_NUMBER`; a chart at condition 1e12 is accepted.
 
+Accepting a chart is not a promise that the pushforward survives. There is
+no policy cap, so a chart at condition 1e12 is constructed and pushed; but
+`P'` is then computed in float64, and at that conditioning a non-diagonal
+chart can produce a `P'` that is not positive definite even though the exact
+congruence is. That is refused, because a non-PD `P` is always refused and
+there is no nearest-PSD repair. The refusal comes from the arithmetic
+running out, not from a threshold anyone chose, and `check_chart_invariance`
+reports it as a failed check rather than raising.
+
 So this package makes a **refusal**, never a rank claim. The exact,
 threshold-free form of the same question exists in the integer satellite,
 where a chart is admitted only if it is unimodular, `det T` in `{+1, -1}`

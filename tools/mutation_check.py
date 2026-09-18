@@ -228,6 +228,13 @@ MUTATIONS: tuple[Mutation, ...] = (
         "    tolerance = max(1e-8 * q_scale, backward)",
     ),
     Mutation(
+        "25",
+        "a chart push refusal is reported, not raised, by a check",
+        "src/lyapunov/checks.py",
+        "    except ValueError as exc:\n        return CheckResult(",
+        "    except ZeroDivisionError as exc:\n        return CheckResult(",
+    ),
+    Mutation(
         "21",
         "a doc cannot give a statement the wrong contract",
         "docs/GATE.md",

@@ -11,7 +11,7 @@ import pytest
 
 from lyapunov.certificates import affine_quadratic, quadratic
 from lyapunov.charts import LinearChart, push_certificate
-from lyapunov.checks import check_decrease, check_vertices
+from lyapunov.checks import check_chart_invariance, check_decrease, check_vertices
 from lyapunov.discrete_guest import (
     GuestRefuse,
     det2,
@@ -401,3 +401,48 @@ def test_the_residual_gate_is_unchanged_for_well_scaled_plants():
             np.max(np.abs(decrease_matrix(plant.A, cert.P, time=plant.time) + np.eye(2)))
         )
         assert residual < 1e-8
+
+
+def test_the_no_condition_cap_law_is_not_a_diagonal_only_law():
+    # tests/test_constitution.py pins "no condition cap" with a DIAGONAL chart,
+    # where the two solves are exactly symmetric. Every chart test in the repo
+    # was diagonal, so the law was in practice only enforced there. Rotate the
+    # same cond=1e12 chart: it must still be CONSTRUCTED without a cap, and any
+    # refusal must come from the arithmetic, never from a symmetry tolerance.
+    angle = 0.3
+    rotation = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+    T = rotation @ np.diag([1e-6, 1e6])
+    assert np.linalg.cond(T) == pytest.approx(1e12, rel=1e-3)
+    chart = LinearChart(name="rotated-1e12", T=T)  # no cap: construction succeeds
+    try:
+        push_certificate(quadratic([[2.0, 0.1], [0.1, 3.0]], name="P"), chart)
+    except ValueError as exc:
+        assert "positive definite" in str(exc), (
+            f"a chart must never be refused for a symmetry tolerance: {exc}"
+        )
+
+
+def test_a_chart_push_refusal_is_reported_not_raised():
+    angle = 0.3
+    rotation = np.array(
+        [[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]]
+    )
+    chart = LinearChart(name="rotated-1e12", T=rotation @ np.diag([1e-6, 1e6]))
+    plant = hurwitz2()
+    result = check_chart_invariance(
+        plant, solve_lyapunov(plant.A, time=plant.time), chart, [0.3, -1.1]
+    )
+    assert result.passed is False
+    assert "refused" in result.details
+    with pytest.raises(AssertionError):
+        result.raise_for_failure()
+
+
+def test_a_well_conditioned_non_diagonal_chart_still_passes_the_invariance_check():
+    plant = hurwitz2()
+    chart = LinearChart(name="shear", T=[[1.0, 0.5], [0.3, 1.0]])
+    check_chart_invariance(
+        plant, solve_lyapunov(plant.A, time=plant.time), chart, [0.3, -1.1]
+    ).raise_for_failure()
