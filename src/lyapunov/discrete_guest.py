@@ -26,12 +26,30 @@ class GuestRefuse(ValueError):
     """The discrete map is not an admitted integer realization."""
 
 
+I64_MIN = -(1 << 63)
+I64_MAX = (1 << 63) - 1
+
+
 def _as_i64(value: int | float, name: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise GuestRefuse(f"{name} must be an int, got {type(value).__name__}")
-    if value < -(1 << 63) or value > (1 << 63) - 1:
+    if value < I64_MIN or value > I64_MAX:
         raise GuestRefuse(f"{name} overflows i64")
     return int(value)
+
+
+def _i64(value: int, name: str) -> int:
+    """Range-check a computed value.
+
+    Python integers are unbounded; the Rust twin is ``i64`` and wraps. A
+    result outside the range would make the two disagree, and
+    docs/DISCRETE-GUEST-v1.md says a disagreement with the integer twin is a
+    refuse, not a repair. So refuse here rather than return a bignum the
+    guest could never reproduce.
+    """
+    if value < I64_MIN or value > I64_MAX:
+        raise GuestRefuse(f"{name} overflows i64 ({value}); the Rust twin would wrap")
+    return value
 
 
 def _mat2(values: list[list[int]], name: str) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -60,18 +78,22 @@ def _vec3(values: list[int], name: str) -> tuple[int, int, int]:
 
 
 def _sub(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
-    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+    return (
+        _i64(a[0] - b[0], "edge[0]"),
+        _i64(a[1] - b[1], "edge[1]"),
+        _i64(a[2] - b[2], "edge[2]"),
+    )
 
 
 def _dot(a: tuple[int, int, int], b: tuple[int, int, int]) -> int:
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+    return _i64(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], "dot")
 
 
 def _cross(a: tuple[int, int, int], b: tuple[int, int, int]) -> tuple[int, int, int]:
     return (
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
+        _i64(a[1] * b[2] - a[2] * b[1], "cross[0]"),
+        _i64(a[2] * b[0] - a[0] * b[2], "cross[1]"),
+        _i64(a[0] * b[1] - a[1] * b[0], "cross[2]"),
     )
 
 
@@ -80,8 +102,15 @@ def _require_symmetric(P: tuple[tuple[int, int], tuple[int, int]], name: str = "
         raise GuestRefuse(f"{name} must be symmetric")
 
 
+def _require_pd(P: tuple[tuple[int, int], tuple[int, int]], name: str = "P") -> None:
+    """Symmetry plus the leading-minor PD test on Z^2, as the Rust twin does."""
+    _require_symmetric(P, name)
+    if P[0][0] <= 0 or det2(P) <= 0:
+        raise GuestRefuse(f"{name} must be positive definite on Z^2 (leading minor and det)")
+
+
 def det2(M: tuple[tuple[int, int], tuple[int, int]]) -> int:
-    return M[0][0] * M[1][1] - M[0][1] * M[1][0]
+    return _i64(M[0][0] * M[1][1] - M[0][1] * M[1][0], "det")
 
 
 def mul2(
@@ -89,8 +118,14 @@ def mul2(
     B: tuple[tuple[int, int], tuple[int, int]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
     return (
-        (A[0][0] * B[0][0] + A[0][1] * B[1][0], A[0][0] * B[0][1] + A[0][1] * B[1][1]),
-        (A[1][0] * B[0][0] + A[1][1] * B[1][0], A[1][0] * B[0][1] + A[1][1] * B[1][1]),
+        (
+            _i64(A[0][0] * B[0][0] + A[0][1] * B[1][0], "mul[0,0]"),
+            _i64(A[0][0] * B[0][1] + A[0][1] * B[1][1], "mul[0,1]"),
+        ),
+        (
+            _i64(A[1][0] * B[0][0] + A[1][1] * B[1][0], "mul[1,0]"),
+            _i64(A[1][0] * B[0][1] + A[1][1] * B[1][1], "mul[1,1]"),
+        ),
     )
 
 
@@ -99,12 +134,15 @@ def transpose(M: tuple[tuple[int, int], tuple[int, int]]) -> tuple[tuple[int, in
 
 
 def apply2(M: tuple[tuple[int, int], tuple[int, int]], x: tuple[int, int]) -> tuple[int, int]:
-    return (M[0][0] * x[0] + M[0][1] * x[1], M[1][0] * x[0] + M[1][1] * x[1])
+    return (
+        _i64(M[0][0] * x[0] + M[0][1] * x[1], "apply[0]"),
+        _i64(M[1][0] * x[0] + M[1][1] * x[1], "apply[1]"),
+    )
 
 
 def quadratic(P: tuple[tuple[int, int], tuple[int, int]], x: tuple[int, int]) -> int:
     Px = apply2(P, x)
-    return x[0] * Px[0] + x[1] * Px[1]
+    return _i64(x[0] * Px[0] + x[1] * Px[1], "quadratic")
 
 
 def inv_unimodular(T: tuple[tuple[int, int], tuple[int, int]]) -> tuple[tuple[int, int], tuple[int, int]]:
@@ -118,6 +156,7 @@ def push_P(
     P: tuple[tuple[int, int], tuple[int, int]],
     T: tuple[tuple[int, int], tuple[int, int]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
+    _require_pd(P)
     Tinv = inv_unimodular(T)
     return mul2(transpose(Tinv), mul2(P, Tinv))
 
@@ -126,15 +165,16 @@ def discrete_decrease_form(
     A: tuple[tuple[int, int], tuple[int, int]],
     P: tuple[tuple[int, int], tuple[int, int]],
 ) -> tuple[tuple[int, int], tuple[int, int]]:
+    _require_pd(P)
     AtP = mul2(transpose(A), P)
     return (
         (
-            AtP[0][0] * A[0][0] + AtP[0][1] * A[1][0] - P[0][0],
-            AtP[0][0] * A[0][1] + AtP[0][1] * A[1][1] - P[0][1],
+            _i64(AtP[0][0] * A[0][0] + AtP[0][1] * A[1][0] - P[0][0], "decrease[0,0]"),
+            _i64(AtP[0][0] * A[0][1] + AtP[0][1] * A[1][1] - P[0][1], "decrease[0,1]"),
         ),
         (
-            AtP[1][0] * A[0][0] + AtP[1][1] * A[1][0] - P[1][0],
-            AtP[1][0] * A[0][1] + AtP[1][1] * A[1][1] - P[1][1],
+            _i64(AtP[1][0] * A[0][0] + AtP[1][1] * A[1][0] - P[1][0], "decrease[1,0]"),
+            _i64(AtP[1][0] * A[0][1] + AtP[1][1] * A[1][1] - P[1][1], "decrease[1,1]"),
         ),
     )
 
@@ -143,7 +183,7 @@ def jacobi_step(j_prev: int, j: int, k: int, h2: int) -> int:
     if k not in (0, 1, -1):
         raise GuestRefuse("K must be 0, 1, or -1")
     h2 = _as_i64(h2, "h2")
-    return 2 * j - j_prev - h2 * k * j
+    return _i64(2 * j - j_prev - h2 * k * j, "jacobi_step")
 
 
 def jacobi_trace(j0: int, j1: int, k: int, h2: int, steps: int) -> list[int]:
@@ -169,6 +209,7 @@ def coplanar_star(
     normal = _cross(e0, e1)
     if normal == (0, 0, 0):
         raise GuestRefuse("first two edges are collinear; star is degenerate")
+    # >=3 spokes and a non-degenerate first pair, so `triples` is never empty.
     triples = [_dot(_sub(p, vertex), normal) for p in neighbors[2:]]
     held = all(t == 0 for t in triples)
     return held, normal, triples
@@ -211,7 +252,13 @@ class GuestStatement:
     outputs: dict[str, Any]
     held: bool
     proof_status: Literal["NOT_CHECKED"]
-    host_oracle_gap: float
+    host_oracle_gap: float | None
+    """Gap against the float64 PLSR oracle, or ``None`` when no oracle ran.
+
+    The guest is integer-only and never calls NumPy, so this is ``None`` for
+    every statement here. A hardcoded ``0.0`` would read as "the oracle agreed
+    exactly" when the oracle was never consulted.
+    """
     notes: str
 
     def digest(self) -> str:
@@ -252,11 +299,17 @@ def run_v_push(P: list[list[int]], T: list[list[int]], x: list[int]) -> GuestSta
         numeric_contract=NUMERIC_CONTRACT,
         claim_scope=CLAIM_SCOPE,
         inputs={"P": P, "T": T, "x": x, "det_T": det2(T_i)},
-        outputs={"P_prime": [list(P_prime[0]), list(P_prime[1])], "x_prime": list(x_prime), "V": V, "V_prime": V_prime},
+        outputs={
+            "P_prime": [list(P_prime[0]), list(P_prime[1])],
+            "x_prime": list(x_prime),
+            "V": V,
+            "V_prime": V_prime,
+            "V_gap": abs(V - V_prime),
+        },
         held=held,
         proof_status="NOT_CHECKED",
-        host_oracle_gap=0.0 if held else float(abs(V - V_prime)),
-        notes="Unimodular chart push of P. SP1 prover not attached.",
+        host_oracle_gap=None,
+        notes="Unimodular chart push of P. Integer self-check only; no float64 oracle consulted. SP1 prover not attached.",
     )
 
 
@@ -278,7 +331,7 @@ def run_discrete_decrease(A: list[list[int]], P: list[list[int]], x: list[int]) 
         outputs={"decrease_form": [list(form[0]), list(form[1])], "delta_V": delta},
         held=held,
         proof_status="NOT_CHECKED",
-        host_oracle_gap=0.0,
+        host_oracle_gap=None,
         notes="Discrete decrease at one sample. P is an input. No Lyapunov solve in the guest.",
     )
 
@@ -293,7 +346,7 @@ def run_jacobi_steps(j0: int, j1: int, k: int, h2: int, steps: int) -> GuestStat
         outputs={"trace": trace, "j_final": trace[-1]},
         held=True,
         proof_status="NOT_CHECKED",
-        host_oracle_gap=0.0,
+        host_oracle_gap=None,
         notes="Discrete Jacobi recurrence. Owner is the geodesic companion; PLSR only hosts the integer twin.",
     )
 
@@ -302,7 +355,7 @@ def run_developable_star(vertex: list[int], neighbors: list[list[int]]) -> Guest
     v = _vec3(vertex, "vertex")
     pts = tuple(_vec3(p, f"neighbors[{i}]") for i, p in enumerate(neighbors))
     held, normal, triples = coplanar_star(v, pts)
-    defect = 0 if not triples else max(abs(t) for t in triples)
+    defect = max(abs(t) for t in triples)
     return GuestStatement(
         statement_id=STATEMENT_DEVELOPABLE,
         numeric_contract=NUMERIC_CONTRACT_STAR,
@@ -311,7 +364,7 @@ def run_developable_star(vertex: list[int], neighbors: list[list[int]]) -> Guest
         outputs={"normal": list(normal), "triples": triples, "defect": defect, "max_abs_triple": defect},
         held=held,
         proof_status="NOT_CHECKED",
-        host_oracle_gap=0.0,
+        host_oracle_gap=None,
         notes="Coplanar star helper. Prefer developable-defect-v1 on a panel graph.",
     )
 
@@ -330,7 +383,7 @@ def run_developable_defect(
     """
     v, neighbors = star_from_panel_graph(vertices, edges, center)
     held, normal, triples = coplanar_star(v, neighbors)
-    defect = 0 if not triples else max(abs(t) for t in triples)
+    defect = max(abs(t) for t in triples)
     if held != (defect == 0):
         raise GuestRefuse("held and defect==0 must agree")
     return GuestStatement(
@@ -341,7 +394,7 @@ def run_developable_defect(
         outputs={"defect": defect, "normal": list(normal), "triples": triples},
         held=held,
         proof_status="NOT_CHECKED",
-        host_oracle_gap=0.0,
+        host_oracle_gap=None,
         notes=(
             "Sampled K proxy on a panel graph. held iff defect=0. "
             "Public commit is id/held/digest. Coordinates stay private to the guest. "
@@ -386,10 +439,11 @@ def run_fixture_suite() -> dict[str, Any]:
         "proof_backend": "none",
         "proof_status": "NOT_CHECKED",
         "may_authorize": False,
-        "numeric_contract": NUMERIC_CONTRACT,
+        "numeric_contracts": sorted({s.numeric_contract for s in statements}),
         "statements": [s.to_dict() for s in statements],
         "notes": (
-            "Integer twins. developable-defect-v1 public_commit is id/held/digest. "
+            "Four integer twins spanning more than one numeric contract; each "
+            "statement carries its own. public_commit is id/held/digest. "
             "Do not import this module into gat."
         ),
     }

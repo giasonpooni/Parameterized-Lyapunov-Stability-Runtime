@@ -1,0 +1,302 @@
+{
+  "confirmed_out_of_development": false,
+  "claim_scope": "computational-integrity-only",
+  "proof_status": "NOT_CHECKED",
+  "may_authorize": false,
+  "cargo_prove_available": false,
+  "guest_manifest": "/home/user/Parameterized-Lyapunov-Stability-Runtime/guests/discrete-morphisms-v1/sp1-program/README.md",
+  "callbacks": [
+    {
+      "statement": {
+        "statement_id": "V-push-v1",
+        "numeric_contract": "i64-unimodular-v1",
+        "claim_scope": "computational-integrity-only",
+        "inputs": {
+          "P": [
+            [
+              2,
+              0
+            ],
+            [
+              0,
+              3
+            ]
+          ],
+          "T": [
+            [
+              2,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "x": [
+            1,
+            2
+          ],
+          "det_T": 1
+        },
+        "outputs": {
+          "P_prime": [
+            [
+              5,
+              -8
+            ],
+            [
+              -8,
+              14
+            ]
+          ],
+          "x_prime": [
+            4,
+            3
+          ],
+          "V": 14,
+          "V_prime": 14,
+          "V_gap": 0
+        },
+        "held": true,
+        "proof_status": "NOT_CHECKED",
+        "host_oracle_gap": null,
+        "notes": "Unimodular chart push of P. Integer self-check only; no float64 oracle consulted. SP1 prover not attached.",
+        "statement_digest": "515e52a37ac0cc997dd2df39ca1989705a3d9ccddf2a27833c94f1adcc378544",
+        "public_commit": {
+          "statement_id": "V-push-v1",
+          "held": true,
+          "statement_digest": "515e52a37ac0cc997dd2df39ca1989705a3d9ccddf2a27833c94f1adcc378544"
+        },
+        "may_authorize": false,
+        "traceable": false
+      },
+      "public_commit": {
+        "statement_id": "V-push-v1",
+        "held": true,
+        "statement_digest": "515e52a37ac0cc997dd2df39ca1989705a3d9ccddf2a27833c94f1adcc378544"
+      },
+      "proof_status": "NOT_CHECKED",
+      "backend": "none",
+      "cargo_prove_available": false,
+      "receipt": null,
+      "claim_scope": "computational-integrity-only",
+      "may_authorize": false,
+      "traceable": false,
+      "notes": "No receipt. Evaluation of the integer twin is not a proof."
+    },
+    {
+      "statement": {
+        "statement_id": "discrete-decrease-v1",
+        "numeric_contract": "i64-unimodular-v1",
+        "claim_scope": "computational-integrity-only",
+        "inputs": {
+          "A": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "P": [
+            [
+              1,
+              0
+            ],
+            [
+              0,
+              1
+            ]
+          ],
+          "x": [
+            2,
+            3
+          ]
+        },
+        "outputs": {
+          "decrease_form": [
+            [
+              -1,
+              0
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "delta_V": -4
+        },
+        "held": true,
+        "proof_status": "NOT_CHECKED",
+        "host_oracle_gap": null,
+        "notes": "Discrete decrease at one sample. P is an input. No Lyapunov solve in the guest.",
+        "statement_digest": "0f915c819776d4dbc319952a404385099372d4dfc90db1e67a836a931526c1a6",
+        "public_commit": {
+          "statement_id": "discrete-decrease-v1",
+          "held": true,
+          "statement_digest": "0f915c819776d4dbc319952a404385099372d4dfc90db1e67a836a931526c1a6"
+        },
+        "may_authorize": false,
+        "traceable": false
+      },
+      "public_commit": {
+        "statement_id": "discrete-decrease-v1",
+        "held": true,
+        "statement_digest": "0f915c819776d4dbc319952a404385099372d4dfc90db1e67a836a931526c1a6"
+      },
+      "proof_status": "NOT_CHECKED",
+      "backend": "none",
+      "cargo_prove_available": false,
+      "receipt": null,
+      "claim_scope": "computational-integrity-only",
+      "may_authorize": false,
+      "traceable": false,
+      "notes": "No receipt. Evaluation of the integer twin is not a proof."
+    },
+    {
+      "statement": {
+        "statement_id": "jacobi-step-v1",
+        "numeric_contract": "i64-unimodular-v1",
+        "claim_scope": "computational-integrity-only",
+        "inputs": {
+          "j0": 0,
+          "j1": 1,
+          "K": 0,
+          "h2": 1,
+          "steps": 4
+        },
+        "outputs": {
+          "trace": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "j_final": 5
+        },
+        "held": true,
+        "proof_status": "NOT_CHECKED",
+        "host_oracle_gap": null,
+        "notes": "Discrete Jacobi recurrence. Owner is the geodesic companion; PLSR only hosts the integer twin.",
+        "statement_digest": "418aef4bf7f43cb58006332f108e8dfbc10b78ded6aa05514be230094659999c",
+        "public_commit": {
+          "statement_id": "jacobi-step-v1",
+          "held": true,
+          "statement_digest": "418aef4bf7f43cb58006332f108e8dfbc10b78ded6aa05514be230094659999c"
+        },
+        "may_authorize": false,
+        "traceable": false
+      },
+      "public_commit": {
+        "statement_id": "jacobi-step-v1",
+        "held": true,
+        "statement_digest": "418aef4bf7f43cb58006332f108e8dfbc10b78ded6aa05514be230094659999c"
+      },
+      "proof_status": "NOT_CHECKED",
+      "backend": "none",
+      "cargo_prove_available": false,
+      "receipt": null,
+      "claim_scope": "computational-integrity-only",
+      "may_authorize": false,
+      "traceable": false,
+      "notes": "No receipt. Evaluation of the integer twin is not a proof."
+    },
+    {
+      "statement": {
+        "statement_id": "developable-defect-v1",
+        "numeric_contract": "i64-sampled-defect-v1",
+        "claim_scope": "computational-integrity-only",
+        "inputs": {
+          "vertices": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              -1,
+              0,
+              0
+            ],
+            [
+              0,
+              -1,
+              0
+            ]
+          ],
+          "edges": [
+            [
+              0,
+              1
+            ],
+            [
+              0,
+              2
+            ],
+            [
+              0,
+              3
+            ],
+            [
+              0,
+              4
+            ]
+          ],
+          "center": 0
+        },
+        "outputs": {
+          "defect": 0,
+          "normal": [
+            0,
+            0,
+            1
+          ],
+          "triples": [
+            0,
+            0
+          ]
+        },
+        "held": true,
+        "proof_status": "NOT_CHECKED",
+        "host_oracle_gap": null,
+        "notes": "Sampled K proxy on a panel graph. held iff defect=0. Public commit is id/held/digest. Coordinates stay private to the guest. Not an IFC entity. Do not import into gat.",
+        "statement_digest": "42c6c9bcc75f26439f097c72f1c11d209563c60c29191400a066beb082ee5a67",
+        "public_commit": {
+          "statement_id": "developable-defect-v1",
+          "held": true,
+          "statement_digest": "42c6c9bcc75f26439f097c72f1c11d209563c60c29191400a066beb082ee5a67"
+        },
+        "may_authorize": false,
+        "traceable": false
+      },
+      "public_commit": {
+        "statement_id": "developable-defect-v1",
+        "held": true,
+        "statement_digest": "42c6c9bcc75f26439f097c72f1c11d209563c60c29191400a066beb082ee5a67"
+      },
+      "proof_status": "NOT_CHECKED",
+      "backend": "none",
+      "cargo_prove_available": false,
+      "receipt": null,
+      "claim_scope": "computational-integrity-only",
+      "may_authorize": false,
+      "traceable": false,
+      "notes": "No receipt. Evaluation of the integer twin is not a proof."
+    }
+  ],
+  "notes": "Four integer statements. Public commit is id/held/digest. may_authorize stays false."
+}

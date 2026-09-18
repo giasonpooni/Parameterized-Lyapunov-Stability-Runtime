@@ -143,7 +143,7 @@ def verdict(
             sample,
             f"V={sample.value:.3e} exceeds level {level:.3e}",
         )
-    if sample.max_decrease > -MIN_DECREASE_MARGIN:
+    if sample.max_decrease >= -MIN_DECREASE_MARGIN:
         if abs(sample.max_decrease) <= 1e-14 and np.allclose(x, 0.0):
             return Verdict("certified", sample, "equilibrium sample; V=0 and decrease=0")
         if sample.decrease >= 0.0 and not np.allclose(x, 0.0):

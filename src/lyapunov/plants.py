@@ -44,9 +44,12 @@ class LinearPlant:
 class AffinePlant:
     """Affine-parameter plant ``A(theta) = A0 + sum theta_i A_i``.
 
-    ``theta`` lives in a declared box. Vertices are the evaluation sites for
-    a common-quadratic or affine-P certificate. Rate bounds, when
-    present, bound ``theta_dot`` for continuous-time PDLFs.
+    ``theta`` lives in a declared box. For a common quadratic (constant P)
+    the corners are a sufficient test of the box, because the decrease form
+    is then affine in ``theta``. For an affine ``P(theta)`` the form is
+    quadratic in ``theta`` and the corners are evaluation sites only, not a
+    box certificate. Rate bounds, when present, bound ``theta_dot`` for
+    continuous-time PDLFs; the rate corners do bound the rate box.
     """
 
     name: str

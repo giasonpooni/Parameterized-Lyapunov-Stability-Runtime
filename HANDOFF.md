@@ -17,9 +17,15 @@ packages and does not absorb their domains.
   and models are refused.
 - No local condition-number cap. Singular T is refused by a failed
   solve. No nearest-PSD repair of P.
-- Discrete guest satellite: `V-push-v1`, `discrete-decrease-v1`,
-  `jacobi-step-v1` as exact i64 maps. Host callback attached;
-  SP1 prover not bound. Status `NOT_CHECKED`.
+- Discrete guest satellite: four exact i64 statements -- `V-push-v1`,
+  `discrete-decrease-v1` and `jacobi-step-v1` under `i64-unimodular-v1`,
+  and `developable-defect-v1` under `i64-sampled-defect-v1`. There is no
+  suite-level contract; each statement carries its own.
+  `developable-star-v1` under `i64-coplanar-star-v1` is a helper, not a
+  suite member. A result outside `i64` is refused on both the Python and
+  the Rust side rather than returned as a bignum or wrapped. Public
+  commit is `statement_id`, `held`, `statement_digest` only. Host
+  callback attached; SP1 prover not bound. Status `NOT_CHECKED`.
 - Reference plants: Hurwitz pair, unstable pair (solve must refuse),
   discrete contraction, two-vertex affine coupling LPV.
 - Cross-reference runner against JSPT published matrices
@@ -36,6 +42,20 @@ In development. `results/cross_reference.json` records
 - SOS / polynomial V, SDP synthesis of P, CLF-to-u, hybrid certificates,
   bound SP1 verifier / receipt, CUDA, JSPT import, PLC/SCADA, BIM kernels.
 
+## Known gap, deliberately not closed here
+
+The SP1 guest at `guests/discrete-morphisms-v1/sp1-program` commits
+`(kind, held, a, b)` and never commits `statement_digest`, so a receipt
+carries no binding to the statement it came from: `attach` compares a
+digest the host wrote into the receipt JSON, not one the proof covers.
+Closing this means changing the guest's committed public values to
+`statement_id`, `held`, `statement_digest` and re-deriving the verifying
+key, which needs `cargo prove`. Until that toolchain exists the honest
+position is the one the code already takes: `proof_status` stays
+`NOT_CHECKED`, and nothing in this repository may set
+`verified_by_bound_host` from that program. Do not wire a new statement
+kind before then.
+
 ## Run
 
 ```
@@ -43,5 +63,12 @@ uv run --python 3.13 python examples/quickstart.py
 uv run --python 3.13 python examples/cross_reference.py
 uv run --python 3.13 python examples/discrete_guest.py
 uv run --python 3.13 python examples/host_callback.py
-uv run --python 3.13 --dev pytest
+uv run --python 3.13 python examples/write_figures.py
+uv run --python 3.13 --dev pytest -q
+```
+
+The Rust twin is not a CI dependency and needs no `cargo-prove`:
+
+```
+cd guests/discrete-morphisms-v1 && cargo test && cargo run
 ```

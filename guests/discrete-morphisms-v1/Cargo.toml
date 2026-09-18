@@ -3,7 +3,7 @@ name = "discrete-morphisms-v1"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-description = "i64 twins of V-push, discrete Lyapunov decrease, and a Jacobi step. Not an SP1 dependency."
+description = "Exact i64 twins of V-push, discrete Lyapunov decrease, a Jacobi step, and a sampled developable defect. Not an SP1 dependency."
 publish = false
 
 [[bin]]

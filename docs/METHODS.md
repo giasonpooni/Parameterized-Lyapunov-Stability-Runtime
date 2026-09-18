@@ -61,7 +61,10 @@ P' = T^{-T} P T^{-1},    A' = T A T^{-1}.
 
 Then `V'(x') = V(x)` and the scalar decrease is unchanged. Raw
 Frobenius norms of P are not invariant. This package does not apply
-JSPT's condition cap; a singular T is refused by a failed solve.
+JSPT's condition cap; a singular T is refused at chart construction by an
+exact-det and rank test, and again by a failed solve. The rank test is the
+float64 definition of singular (`smax * n * eps`), not a chosen policy
+number: a chart at condition 1e12 is accepted.
 
 ## What is not claimed
 

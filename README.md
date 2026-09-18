@@ -65,13 +65,18 @@ git clone https://github.com/giasonpooni/Parameterized-Lyapunov-Stability-Runtim
 cd Parameterized-Lyapunov-Stability-Runtime
 uv run --python 3.13 python examples/quickstart.py
 uv run --python 3.13 python examples/cross_reference.py
+uv run --python 3.13 python examples/discrete_guest.py
+uv run --python 3.13 python examples/host_callback.py
 uv run --python 3.13 python examples/write_figures.py
-uv run --python 3.13 --with pytest pytest -q
+uv run --python 3.13 --dev pytest -q
 ```
 
 The quickstart writes `results/quickstart.md`. The cross-reference
 runner writes `results/cross_reference.json` and
-`results/cross_reference.md`.
+`results/cross_reference.md`. The guest runners write the
+`results/discrete_guest.*` and `results/host_callback.*` pins and
+`results/discrete_guest_fixture.svg`. Regenerate those files from their
+runner; never hand-edit the numbers.
 
 ## Scope and limits
 

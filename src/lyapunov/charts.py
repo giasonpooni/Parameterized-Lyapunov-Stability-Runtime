@@ -5,8 +5,9 @@ through an already-accepted invertible T so that V is invariant:
 
     x' = T x,    P' T = Y  with  T^T Y = P,    V'(x') = V(x).
 
-A singular T is refused by a failed solve. There is no local condition
-cap and no nearest-PSD repair.
+A singular T is refused at construction by an exact-det and rank test, and
+again by a failed solve if one is reached directly. There is no local
+condition cap and no nearest-PSD repair.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from .certificates import QuadraticCertificate
-from .linalg import Array, as_square, require_spd
+from .linalg import Array, as_square, immutable, require_spd
 from .plants import LinearPlant
 
 
@@ -28,9 +29,17 @@ class LinearChart:
 
     def __post_init__(self) -> None:
         T = as_square(self.T, "T")
+        # Both tests are load-bearing. det==0.0 alone is scale-dependent
+        # (det(1e-100*I) is 0.0 at condition number 1). The rank test alone
+        # is numpy's smax*n*eps criterion -- the float64 definition of
+        # singular, tracking machine epsilon, not a policy number. It is not
+        # JSPT's 1e12 MAX_CONDITION_NUMBER and no such constant exists here:
+        # a chart at condition 1e12 is accepted (tests/test_constitution.py).
+        # Dropping the rank test would admit exactly-singular charts whose
+        # float det is nonzero and for which np.linalg.solve still succeeds.
         if abs(float(np.linalg.det(T))) == 0.0 or np.linalg.matrix_rank(T) < T.shape[0]:
             raise ValueError("T must be invertible")
-        object.__setattr__(self, "T", T)
+        object.__setattr__(self, "T", immutable(T))
 
     @property
     def dim(self) -> int:

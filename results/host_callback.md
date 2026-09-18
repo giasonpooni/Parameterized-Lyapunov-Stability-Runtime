@@ -9,5 +9,6 @@ claim_scope: `computational-integrity-only`
 | `V-push-v1` | True | NOT_CHECKED |
 | `discrete-decrease-v1` | True | NOT_CHECKED |
 | `jacobi-step-v1` | True | NOT_CHECKED |
+| `developable-defect-v1` | True | NOT_CHECKED |
 
 Not a stamp. Not verified. Do not import into gat.

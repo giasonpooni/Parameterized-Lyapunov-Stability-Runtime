@@ -6,6 +6,18 @@
 //!   a, b        V,V' | delta_V,0 | j_final,0
 //!
 //! Does not commit may_authorize or traceable.
+//!
+//! KNOWN GAP. The guest law requires the public commit to be
+//! `statement_id`, `held`, `statement_digest`. This program commits
+//! `(kind, held, a, b)` and never commits `statement_digest`, so a receipt
+//! it produces is not bound to any particular statement: the host callback
+//! compares a digest the host itself wrote into the receipt JSON. Nothing
+//! in this repository may set `verified_by_bound_host` from this program,
+//! and `proof_status` stays `NOT_CHECKED` regardless of what it emits.
+//! Closing the gap means committing the three declared fields and
+//! re-deriving the verifying key, which needs `cargo prove`. See the
+//! "Known gap" section of HANDOFF.md. Do not wire a fourth statement kind
+//! (`developable-defect-v1`) before that toolchain exists.
 
 #![no_main]
 sp1_zkvm::entrypoint!(main);

@@ -29,6 +29,19 @@ class CheckResult:
             raise AssertionError(f"{self.name} failed: {self.details}")
 
 
+def _require_tightening(atol: float) -> float:
+    """``atol`` may only tighten a test, never loosen one.
+
+    GATE.md: no backend may expose the identities as kwargs that change the
+    law. A negative ``atol`` would turn a refusal into a pass, so it is
+    refused rather than clipped.
+    """
+    value = float(atol)
+    if not np.isfinite(value) or value < 0.0:
+        raise ValueError(f"atol must be finite and non-negative; got {atol!r}")
+    return value
+
+
 def check_decrease(
     plant: Plant,
     certificate: Certificate,
@@ -37,7 +50,11 @@ def check_decrease(
     theta_dot: ArrayLike | None = None,
     atol: float = 0.0,
 ) -> CheckResult:
-    """Require the decrease matrix to be negative definite at one parameter."""
+    """Require the decrease matrix to be negative definite at one parameter.
+
+    ``atol`` only tightens the margin. A negative ``atol`` is refused.
+    """
+    atol = _require_tightening(atol)
     dummy = np.ones(plant.dim)
     sample = evaluate(plant, certificate, dummy, theta=theta, theta_dot=theta_dot)
     residual = sample.max_decrease + atol
@@ -60,7 +77,15 @@ def check_vertices(
     include_rates: bool = True,
     atol: float = 0.0,
 ) -> CheckResult:
-    """Evaluate positivity and decrease at every declared (theta, theta_dot) corner."""
+    """Evaluate positivity and decrease at every declared (theta, theta_dot) corner.
+
+    A constant ``P`` makes the decrease form affine in ``theta``, so the
+    corners are a sufficient common-quadratic test. An ``AffineCertificate``
+    makes it quadratic in ``theta``; the corners are then only the declared
+    sample set, not a sufficient test for the box. That limit is reported,
+    never hidden.
+    """
+    atol = _require_tightening(atol)
     worst = -np.inf
     worst_label = ""
     failures = 0
@@ -86,12 +111,27 @@ def check_vertices(
             if not result.passed:
                 failures += 1
     passed = failures == 0 and checked > 0
+    sufficient = isinstance(certificate, QuadraticCertificate)
+    claim = (
+        "sufficient common-quadratic test on the declared box"
+        if sufficient
+        else "declared corners only; NOT sufficient for the box (P(theta) makes the "
+        "decrease form quadratic in theta)"
+    )
     return CheckResult(
         name=f"vertices:{plant.name}:{certificate.name}",
         passed=passed,
         residual=worst,
-        details=f"{checked} corners, {failures} failed; worst {worst_label} max eig(M)={worst:.3e}",
-        extra={"corners": float(checked), "failures": float(failures), "worst": worst},
+        details=(
+            f"{checked} corners, {failures} failed; worst {worst_label} "
+            f"max eig(M)={worst:.3e}; {claim}"
+        ),
+        extra={
+            "corners": float(checked),
+            "failures": float(failures),
+            "worst": worst,
+            "sufficient_for_box": float(sufficient),
+        },
     )
 
 
