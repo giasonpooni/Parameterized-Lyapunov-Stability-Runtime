@@ -23,7 +23,7 @@ from lyapunov.discrete_guest import (
     run_discrete_decrease,
     run_v_push,
 )
-from lyapunov.equation import decrease_matrix
+from lyapunov.equation import decrease_matrix, solve_lyapunov
 from lyapunov.host_callback import Receipt, attach
 from lyapunov.plants import constant_plant
 from lyapunov.reference_plants import hurwitz2, two_vertex_lpv, unstable2
@@ -338,3 +338,66 @@ def test_there_is_still_no_condition_number_constant_anywhere():
     names = [n for n in dir(constitution) if not n.startswith("_")]
     assert not [n for n in names if "COND" in n.upper() or "CAP" in n.upper()], names
     assert not [n for n in dir(lyapunov) if "MAX_CONDITION" in n.upper()]
+
+
+# --- a refusal must mean the maths failed, not that the units are small ---
+
+
+def test_a_well_conditioned_chart_is_accepted_at_every_unit_scale():
+    # T = s * [[1, 0.5], [0.3, 1]] has condition number 2.32 at every s. Only
+    # the unit scale changes. An absolute symmetry tolerance on the pushed P'
+    # refused s = 1e-3, 1e-6 and 1e-8 while accepting 1e-5 and 1e-7, which is
+    # roundoff luck, not a property of the chart.
+    P = np.array([[2.0, 0.3], [0.3, 3.0]])
+    base = np.array([[1.0, 0.5], [0.3, 1.0]])
+    assert np.linalg.cond(base) < 3.0
+    x = np.array([0.7, -1.3])
+    reference = float(x @ P @ x)
+    for scale in (1e-3, 1e-5, 1e-6, 1e-7, 1e-8, 1e3, 1e6):
+        chart = LinearChart(name=f"unit-{scale:g}", T=scale * base)
+        pushed = push_certificate(quadratic(P, name="P"), chart)
+        moved = chart.T @ x
+        assert float(moved @ pushed.P @ moved) == pytest.approx(reference, rel=1e-12)
+
+
+def test_a_pushed_certificate_is_exactly_symmetric():
+    # The congruence is symmetric in exact arithmetic, so the stored P' must
+    # carry no skew at all: anything else is roundoff this package created.
+    base = np.array([[1.0, 0.5], [0.3, 1.0]])
+    for scale in (1e-6, 1e-3, 1.0, 1e6):
+        pushed = push_certificate(
+            quadratic([[2.0, 0.3], [0.3, 3.0]], name="P"),
+            LinearChart(name="u", T=scale * base),
+        )
+        assert np.array_equal(pushed.P, pushed.P.T)
+
+
+def test_a_correct_certificate_on_a_badly_scaled_plant_is_not_refused():
+    # Hurwitz, eigenvalues -1e-5 twice. P is enormous, so the residual is
+    # large in absolute terms and tiny relative to the operator. A gate scaled
+    # only by ||Q|| called this correct certificate a failure.
+    A = np.array([[-1e-5, 1.0], [0.0, -1e-5]])
+    cert = solve_lyapunov(A, time="continuous")
+    assert float(np.min(np.linalg.eigvalsh(cert.P))) > 0.0
+    residual = A.T @ cert.P + cert.P @ A + np.eye(2)
+    relative = float(np.max(np.abs(residual))) / float(np.max(np.abs(A.T @ cert.P)))
+    assert relative < 1e-9
+    assert float(np.max(np.abs(cert.P))) > 1e13
+
+
+def test_a_scale_float64_cannot_resolve_is_still_refused():
+    # Two decades further and the identity is no longer recoverable against Q.
+    # That is a refusal, not a certificate with a loose tolerance.
+    with pytest.raises(ValueError, match="not resolvable in float64"):
+        solve_lyapunov(np.array([[-1e-7, 1.0], [0.0, -1e-7]]), time="continuous")
+
+
+def test_the_residual_gate_is_unchanged_for_well_scaled_plants():
+    # The widened tolerance must not touch ordinary problems: there the
+    # backward term is negligible and the gate is still 1e-8 * ||Q||.
+    for plant in (hurwitz2(),):
+        cert = solve_lyapunov(plant.A, time=plant.time)
+        residual = float(
+            np.max(np.abs(decrease_matrix(plant.A, cert.P, time=plant.time) + np.eye(2)))
+        )
+        assert residual < 1e-8

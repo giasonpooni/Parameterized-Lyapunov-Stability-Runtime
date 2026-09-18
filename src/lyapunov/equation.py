@@ -133,9 +133,34 @@ def solve_lyapunov(
     P = _unpack_symmetric(packed, dim)
     P = require_spd(P, "solved P")
     residual = decrease_matrix(A_mat, P, time=time) + Q_mat
-    if float(np.max(np.abs(residual))) > 1e-8 * max(1.0, float(np.max(np.abs(Q_mat)))):
+    residual_max = float(np.max(np.abs(residual)))
+    # This gate asks one question: did the linear solve actually resolve the
+    # equation? A backward-stable solve leaves a residual of order
+    # eps * ||operator|| * ||P||, so the tolerance has to carry that term.
+    # Scaling by ||Q|| alone refuses correct certificates on badly scaled but
+    # perfectly stable plants: A = [[-1e-5, 1], [0, -1e-5]] gives a positive
+    # definite P with a RELATIVE residual of 5e-12 and an absolute one of
+    # 1e-7, which the old gate called a failure.
+    # The backward term alone is not enough. For an ill-conditioned operator
+    # it grows without bound, and a residual that large says nothing: the
+    # equation is A^T P + P A = -Q, so once the residual approaches ||Q|| the
+    # identity is not recovered at all. Cap the tolerance at recovering Q to
+    # six digits. Between the two, this is never tighter than the old gate,
+    # so no solve accepted before is refused now, and never looser than a
+    # meaningful forward error.
+    q_scale = max(1.0, float(np.max(np.abs(Q_mat))))
+    backward = (
+        64.0
+        * float(np.finfo(float).eps)
+        * float(np.max(np.abs(operator)))
+        * float(np.max(np.abs(P)))
+    )
+    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)
+    if residual_max > tolerance:
         raise ValueError(
-            f"Lyapunov residual {float(np.max(np.abs(residual))):.3e} exceeds tolerance"
+            f"Lyapunov residual {residual_max:.3e} exceeds tolerance "
+            f"{tolerance:.3e}; the equation is not resolvable in float64 at "
+            "this scale"
         )
     return QuadraticCertificate(
         name=name,

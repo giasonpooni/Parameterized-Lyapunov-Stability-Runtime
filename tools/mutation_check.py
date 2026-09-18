@@ -207,6 +207,27 @@ MUTATIONS: tuple[Mutation, ...] = (
         "| `V-push-v1` | `i64-unimodular-v1` |",
     ),
     Mutation(
+        "22",
+        "a refusal must mean the maths failed, not that the units are small",
+        "src/lyapunov/charts.py",
+        "    primed = 0.5 * (primed + primed.T)\n",
+        "",
+    ),
+    Mutation(
+        "23",
+        "the residual gate measures the solve, not the scale of Q",
+        "src/lyapunov/equation.py",
+        "    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)",
+        "    tolerance = 1e-8 * q_scale",
+    ),
+    Mutation(
+        "24",
+        "the residual gate keeps a meaningful forward error",
+        "src/lyapunov/equation.py",
+        "    tolerance = min(max(1e-8 * q_scale, backward), 1e-6 * q_scale)",
+        "    tolerance = max(1e-8 * q_scale, backward)",
+    ),
+    Mutation(
         "21",
         "a doc cannot give a statement the wrong contract",
         "docs/GATE.md",

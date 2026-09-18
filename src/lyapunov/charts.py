@@ -73,6 +73,16 @@ def push_certificate(certificate: QuadraticCertificate, chart: LinearChart) -> Q
         primed = np.linalg.solve(chart.T.T, Y.T).T
     except np.linalg.LinAlgError as exc:
         raise ValueError("T is not invertible; refused without a condition cap") from exc
+    # P' = T^-T P T^-1 is exactly symmetric whenever P is, and certificate.P
+    # was already required symmetric when the certificate was declared. So any
+    # skew here is roundoff from the two solves, of order eps*||P'||. That
+    # grows with the UNIT SCALE of T and not with its conditioning: a chart at
+    # condition 2.3 is refused by an absolute SYMMETRY_ATOL once T is small
+    # enough that P' reaches ~1e12. SYMMETRY_ATOL guards a P the caller
+    # DECLARED; this congruence is one this package just computed, so project
+    # the roundoff skew out, exactly as decrease_matrix already does for the
+    # forms it builds. This is not a repair of an input.
+    primed = 0.5 * (primed + primed.T)
     primed = require_spd(primed, "P'")
     return QuadraticCertificate(
         name=f"{certificate.name}[{chart.name}]",
