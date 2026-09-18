@@ -36,3 +36,26 @@ jobs:
         run: uv build --python ${{ matrix.python }}
       - name: Run default suite
         run: uv run --python ${{ matrix.python }} --dev pytest -q
+
+      # A green suite proves the tests ran, not that they are load bearing.
+      # Ubuntu and one interpreter only: the gate replays the suite once per
+      # mutation, and it tests the tests, which are not platform dependent.
+      - name: Mutation gate
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: uv run --python ${{ matrix.python }} --dev python tools/mutation_check.py
+
+  guest:
+    name: i64 guest twin
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # The crate has no dependencies, so this needs no network and no
+      # cargo-prove. guests/discrete-morphisms-v1/sp1-program is a different
+      # package and stays out of CI, as docs/GATE.md requires.
+      - name: Test the Rust twin
+        working-directory: guests/discrete-morphisms-v1
+        run: cargo test --locked
+      - name: Run the twin CLI
+        working-directory: guests/discrete-morphisms-v1
+        run: cargo run --locked
