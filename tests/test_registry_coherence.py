@@ -81,6 +81,30 @@ def test_every_statement_id_appears_in_every_enumerating_doc():
     assert not missing, "\n".join(missing)
 
 
+#: Docs whose markdown table IS the statement registry, and the column the
+#: statement_id sits in.
+REGISTRY_TABLES = ("docs/GATE.md", "docs/DISCRETE-GUEST-v1.md")
+
+TABLE_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*`(i64-[^`]+)`\s*\|", re.MULTILINE)
+
+
+def test_each_registry_table_lists_exactly_the_suite_in_order():
+    suite = {s["statement_id"]: s["numeric_contract"] for s in _suite()["statements"]}
+    for relative in REGISTRY_TABLES:
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        rows = TABLE_ROW.findall(text)
+        assert rows, f"{relative} has no statement table"
+        assert [r[0] for r in rows] == list(EXPECTED_IDS), (
+            f"{relative} statement table is {[r[0] for r in rows]}, "
+            f"expected {list(EXPECTED_IDS)}"
+        )
+        for statement_id, contract in rows:
+            assert contract == suite[statement_id], (
+                f"{relative} gives {statement_id} the contract {contract}, "
+                f"the code gives it {suite[statement_id]}"
+            )
+
+
 def test_no_doc_states_a_stale_statement_count():
     expected_word = NUMBER_WORDS[len(EXPECTED_IDS)]
     wrong: list[str] = []

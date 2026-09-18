@@ -14,7 +14,10 @@ from lyapunov.charts import LinearChart, push_certificate
 from lyapunov.checks import check_decrease, check_vertices
 from lyapunov.discrete_guest import (
     GuestRefuse,
+    det2,
     discrete_decrease_form,
+    jacobi_step,
+    mul2,
     push_P,
     quadratic as guest_quadratic,
     run_discrete_decrease,
@@ -172,6 +175,23 @@ def test_a_chart_cannot_be_mutated_after_it_is_accepted():
 def test_guest_refuses_a_product_that_leaves_i64():
     with pytest.raises(GuestRefuse, match="overflows i64"):
         guest_quadratic(((2, 0), (0, 3)), (2**62, 0))
+
+
+def test_every_guest_kernel_range_checks_its_own_result():
+    # P = I and x = 2**32: apply2 stays inside i64 (1 * 2**32), so only the
+    # final dot product overflows. A check in apply2 alone would miss this.
+    assert 2**32 < (1 << 63) - 1
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        guest_quadratic(((1, 0), (0, 1)), (2**32, 0))
+    # det2: entries in range, product out of range.
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        det2(((2**40, 0), (0, 2**40)))
+    # mul2: each factor in range, the entry product is not.
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        mul2(((2**40, 0), (0, 1)), ((2**40, 0), (0, 1)))
+    # jacobi_step: the recurrence itself leaves the range.
+    with pytest.raises(GuestRefuse, match="overflows i64"):
+        jacobi_step(0, (1 << 62) + 1, 0, 1)
 
 
 def test_guest_refuses_non_integer_inputs():
