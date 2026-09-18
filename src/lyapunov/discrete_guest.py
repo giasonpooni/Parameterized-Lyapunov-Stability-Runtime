@@ -348,9 +348,11 @@ def run_v_push(P: list[list[int]], T: list[list[int]], x: list[int]) -> GuestSta
     P_i = _mat2(P, "P")
     T_i = _mat2(T, "T")
     x_i = _vec2(x, "x")
-    _require_symmetric(P_i)
-    if det2(P_i) <= 0 or P_i[0][0] <= 0:
-        raise GuestRefuse("P must be positive definite on Z^2 (leading minor and det)")
+    # Leading minor before determinant, as require_pd in lib.rs does. Testing
+    # det first refuses a P whose leading entry is already negative with an
+    # Overflow rather than a NotPd, so the twins named different refusals for
+    # the same input. Found by tools/differential_twins.py.
+    _require_pd(P_i)
     P_prime = push_P(P_i, T_i)
     x_prime = apply2(T_i, x_i)
     V = quadratic(P_i, x_i)
@@ -379,9 +381,7 @@ def run_discrete_decrease(A: list[list[int]], P: list[list[int]], x: list[int]) 
     A_i = _mat2(A, "A")
     P_i = _mat2(P, "P")
     x_i = _vec2(x, "x")
-    _require_symmetric(P_i)
-    if det2(P_i) <= 0 or P_i[0][0] <= 0:
-        raise GuestRefuse("P must be positive definite on Z^2")
+    _require_pd(P_i)
     form = discrete_decrease_form(A_i, P_i)
     delta = quadratic(form, x_i)
     held = delta <= 0

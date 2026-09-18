@@ -44,6 +44,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
         run: uv run --python ${{ matrix.python }} --dev python tools/mutation_check.py
 
+      # The laws as relations over random draws, not as fixtures. Small here;
+      # run it deeper by hand when touching charts, the solve or the runtime.
+      - name: Property sweep
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: uv run --python ${{ matrix.python }} python tools/property_sweep.py --draws 2000
+
   guest:
     name: i64 guest twin
     runs-on: ubuntu-latest
@@ -59,3 +65,11 @@ jobs:
       - name: Run the twin CLI
         working-directory: guests/discrete-morphisms-v1
         run: cargo run --locked
+
+      # The contract makes the twins referees for each other. Check that on
+      # generated cases, not only on the four fixtures.
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          version: "0.10.10"
+      - name: Differential test of the two twins
+        run: uv run --python 3.13 python tools/differential_twins.py --cases 4000
