@@ -50,6 +50,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
         run: uv run --python ${{ matrix.python }} python tools/property_sweep.py --draws 2000
 
+      # Nearly every uncovered line in this package used to be a `raise`, so
+      # the paths that carry the product were the least exercised code in it.
+      # The floor is a ratchet: raise it, never lower it.
+      - name: Coverage floor
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.13'
+        run: |
+          uv run --python ${{ matrix.python }} --dev python -m coverage run -m pytest -q
+          uv run --python ${{ matrix.python }} --dev python -m coverage report
+
   guest:
     name: i64 guest twin
     runs-on: ubuntu-latest

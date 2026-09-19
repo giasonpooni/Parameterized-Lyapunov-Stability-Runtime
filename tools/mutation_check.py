@@ -312,6 +312,79 @@ MUTATIONS: tuple[Mutation, ...] = (
         'lines.append(f"- [{mark}] {check.claim} {check.name}: {check.details}")',
         'lines.append(f"- [{mark}] {check.name}: {check.details}")',
     ),
+    # plants.py and certificates.py carried 200 and 82 lines with no mutation
+    # at all: the gate proved 37 laws were pinned and said nothing about the
+    # modules that own "A is an input" and "P is a declaration".
+    Mutation(
+        "38",
+        "A is an input and must be square",
+        "src/lyapunov/plants.py",
+        '        A = as_square(self.A, "A")',
+        "        A = np.asarray(self.A, dtype=float)",
+    ),
+    Mutation(
+        "39",
+        "a theta outside the declared box is refused",
+        "src/lyapunov/plants.py",
+        "        if np.any(value < self.theta_min - 1e-15) or np.any(value > self.theta_max + 1e-15):",
+        "        if False:",
+    ),
+    Mutation(
+        "40",
+        "a rate outside the declared rate box is refused",
+        "src/lyapunov/plants.py",
+        "        if np.any(value < self.rate_min - 1e-15) or np.any(value > self.rate_max + 1e-15):",
+        "        if False:",
+    ),
+    Mutation(
+        "41",
+        "a box must have theta_max at least theta_min",
+        "src/lyapunov/plants.py",
+        "        if np.any(theta_max < theta_min):",
+        "        if False:",
+    ),
+    Mutation(
+        "42",
+        "a declared P is validated positive definite",
+        "src/lyapunov/certificates.py",
+        '        P = require_spd(self.P, "P")',
+        '        P = require_symmetric(self.P, "P")',
+    ),
+    Mutation(
+        "43",
+        "every affine P_i is symmetric",
+        "src/lyapunov/certificates.py",
+        '        terms = tuple(require_symmetric(term, f"P[{i}]") for i, term in enumerate(self.terms))',
+        "        terms = tuple(np.asarray(term, dtype=float) for term in self.terms)",
+    ),
+    Mutation(
+        "44",
+        "an affine P(theta) is positive definite at every evaluation",
+        "src/lyapunov/certificates.py",
+        '        return require_spd(value, f"P({self.name})")',
+        "        return value",
+    ),
+    Mutation(
+        "45",
+        "the jacobi twin bounds its step count",
+        "src/lyapunov/discrete_guest.py",
+        "    if steps < 1 or steps > 64:",
+        "    if False:",
+    ),
+    Mutation(
+        "46",
+        "an edge is a spoke whichever way round it is listed",
+        "src/lyapunov/discrete_guest.py",
+        "        elif j == center and i != center:\n            nbr_idx.append(i)",
+        "        elif False:\n            nbr_idx.append(i)",
+    ),
+    Mutation(
+        "47",
+        "a receipt naming sp1 without proof bytes is not checked",
+        "src/lyapunov/host_callback.py",
+        "    if not receipt.proof_bytes_hex or not receipt.verifying_key_digest:",
+        "    if False:",
+    ),
     Mutation(
         "25",
         "a chart push refusal is reported, not raised, by a check",
@@ -327,6 +400,31 @@ MUTATIONS: tuple[Mutation, ...] = (
         "| `developable-defect-v1` | `i64-unimodular-v1` |",
     ),
 )
+
+
+def _warn_about_untracked(working_tree: bool) -> None:
+    """Refuse to measure a tree that is missing files the author just wrote.
+
+    --working-tree copies TRACKED files, so a new module or a new test file
+    that has not been `git add`ed is simply absent from the sandbox. That
+    does not fail loudly: the suite runs without those tests and every
+    mutation they would have caught is reported as an unpinned law. It has
+    happened twice. Untracked source or test files are now a hard stop.
+    """
+    if not working_tree:
+        return
+    listed = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "src", "tests", "tools"],
+        cwd=ROOT, capture_output=True, text=True, check=True,
+    ).stdout.split()
+    relevant = [name for name in listed if name.endswith(".py")]
+    if relevant:
+        raise SystemExit(
+            "untracked files under src/, tests/ or tools/ would be MISSING from "
+            "the sandbox, so any law they pin would be reported as unpinned:\n  "
+            + "\n  ".join(relevant)
+            + "\n`git add` them, or run without --working-tree to measure HEAD."
+        )
 
 
 def _populate(target: Path, working_tree: bool) -> None:
@@ -454,6 +552,7 @@ def main() -> int:
             print(f"{mutation.ident}  {mutation.path:<36} {mutation.law}")
         return 0
 
+    _warn_about_untracked(args.working_tree)
     sandbox = Path(tempfile.mkdtemp(prefix="plsr-mutation-"))
     try:
         _populate(sandbox, args.working_tree)

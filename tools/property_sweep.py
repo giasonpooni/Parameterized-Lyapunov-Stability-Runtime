@@ -266,10 +266,21 @@ def main() -> int:
                 skipped += 1
             except AssertionError as exc:
                 failures.append(str(exc))
-        mark = "ok  " if not failures else "FAIL"
-        print(f"  {mark} {name:<21} held {held:>6}  refused {skipped:>6}  broken {len(failures):>5}")
-        if held == 0:
-            print("       every draw was refused; this property proved nothing")
+        vacuous = held < max(1, args.draws // 20)
+        mark = "FAIL" if failures or vacuous else "ok  "
+        print(
+            f"  {mark} {name:<21} held {held:>6}  refused {skipped:>6}  "
+            f"broken {len(failures):>5}"
+        )
+        if vacuous:
+            # A property that is almost always refused reports "ok" while
+            # checking nearly nothing. That is the failure mode a sweep is
+            # most likely to hide, so it is a failure here rather than a note.
+            print(
+                f"       only {held} of {args.draws} draws reached this property; "
+                "it is passing vacuously"
+            )
+            failures_total += 1
         for message in failures[: args.show]:
             print(f"       {message}")
         failures_total += len(failures)

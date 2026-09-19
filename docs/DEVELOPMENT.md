@@ -84,6 +84,39 @@ run. Without that, CPython's `(mtime, size)` cache key can match across two
 mutations written in the same mtime tick and the run silently tests the
 previous mutation's code, which reports an escaped law as caught.
 
+## Coverage, and what the last percent is
+
+Branch coverage runs in CI with a floor in `pyproject.toml`. It is a
+ratchet: raise it when coverage rises, never lower it so a change fits.
+
+It was added because the shape of the misses was damning. At 90% nearly
+every uncovered line in the package was a `raise` -- the refusal paths,
+which are the product, were its least exercised code. Writing
+`tests/test_refusals.py` took it to 98.88%.
+
+What remains is defensive code that cannot fire, and is listed here so the
+gap is accounted for rather than mysterious:
+
+- `runtime.py` "P is not positive definite" and "V is negative". Every
+  certificate validates P at construction or at each evaluation, so
+  `min_P` is strictly positive whenever a sample exists, and `x^T P x` is
+  then never negative. `test_every_evaluated_P_is_positive_definite_by_construction`
+  pins the invariant that makes them unreachable.
+- `runtime.py` "theta_dot does not match the certificate". The plant checks
+  the rate against its own parameter count first, and the certificate
+  matrix is built from `theta` before the rate is assembled, so every route
+  to that mismatch is intercepted earlier.
+- `charts.py` the two `LinAlgError` handlers. The rank test at construction
+  refuses anything `np.linalg.solve` would reject.
+- `discrete_guest.py` "held and defect==0 must agree", an internal
+  consistency assertion between two values computed from the same triples.
+- `benchmarks.py` "unexpected: non-square J was accepted as A", which fires
+  only if the law it records has already been broken.
+
+Keeping these is deliberate: they are cheap insurance against a future
+path that skips a validation. Deleting them to reach 100% would trade a
+guard for a number.
+
 ## Recursive benchmark rule
 
 1. Read a published sibling matrix or result number.

@@ -9,7 +9,7 @@ requires-python = ">=3.12"
 dependencies = ["numpy>=2.0"]
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "coverage>=7"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -21,3 +21,15 @@ packages = ["src/lyapunov"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+branch = true
+source = ["src/lyapunov"]
+
+[tool.coverage.report]
+precision = 2
+# A ratchet, not a target. Raise it when coverage rises; never lower it to
+# make a change fit. The remaining gap is accounted for in
+# docs/DEVELOPMENT.md and is defensive code that cannot fire.
+fail_under = 98.8
+show_missing = true

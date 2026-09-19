@@ -65,6 +65,17 @@ REFUSAL_KINDS = (
     ("duplicate spoke", "DuplicateSpoke"),
 )
 
+#: Refusals with no Rust counterpart, so not differentially testable.
+#: `Parse` is a Python input-shape refusal -- an edge given as a triple. The
+#: Rust twin takes `&[(usize, usize)]`, which cannot hold one, and the wire
+#: protocol between them is fixed-arity, so neither side can even express
+#: the case. Listing it as comparable would claim a check nobody performs.
+PYTHON_ONLY_KINDS = frozenset({"Parse"})
+
+#: Every other declared kind must actually be generated, or the agreement on
+#: it is asserted by this table and tested by nothing.
+COMPARABLE_KINDS = frozenset(name for _, name in REFUSAL_KINDS) - PYTHON_ONLY_KINDS
+
 
 def classify(message: str) -> str:
     for needle, name in REFUSAL_KINDS:
@@ -126,10 +137,22 @@ def _clamp(value: int) -> int:
 
 
 def symmetric_pair(rng: random.Random) -> list[list[int]]:
+    # Boundary-weighted draws almost never land on a P that is both symmetric
+    # and positive definite, so a first version reached the SUCCESS path in
+    # 1.5% of DEC cases and 4.8% of VPUSH. Agreement on a refusal matters, but
+    # agreement on a computed value matters more, so a share of draws is small
+    # and definite on purpose.
+    if rng.random() < 0.35:
+        a = rng.randint(1, 6)
+        d = rng.randint(1, 6)
+        b = rng.randint(-2, 2)
+        if a * d - b * b <= 0:  # keep it genuinely definite
+            a, d, b = 3, 3, rng.randint(-1, 1)
+        return [[a, b], [b, d]]
     a, d, b = scalar(rng), scalar(rng), scalar(rng)
     if rng.random() < 0.25:  # deliberately non-symmetric
         return [[a, b], [scalar(rng), d]]
-    if rng.random() < 0.35:  # deliberately easy to be PD
+    if rng.random() < 0.35:
         a, d, b = _clamp(abs(a) + 1), _clamp(abs(d) + 1), rng.randint(-1, 1)
     return [[a, b], [b, d]]
 
@@ -145,6 +168,8 @@ def chart(rng: random.Random) -> list[list[int]]:
 
 
 def star(rng: random.Random) -> tuple[list[list[int]], list[list[int]], int]:
+    if rng.random() < 0.03:  # an empty panel graph is a declared refusal
+        return [], [], 0
     count = rng.randint(2, 6)
     coordinate = lambda: rng.randint(-6, 6) if rng.random() < 0.85 else scalar(rng)
     centre = [coordinate() for _ in range(3)]
@@ -171,15 +196,21 @@ def build(rng: random.Random) -> Case:
     which = rng.choice(["VPUSH", "DEC", "JAC", "DEFECT"])
     if which == "VPUSH":
         P, T = symmetric_pair(rng), chart(rng)
-        x = [scalar(rng), scalar(rng)]
+        x = (
+            [rng.randint(-4, 4), rng.randint(-4, 4)]
+            if rng.random() < 0.35
+            else [scalar(rng), scalar(rng)]
+        )
         line = "VPUSH " + " ".join(
             map(str, [P[0][0], P[0][1], P[1][0], P[1][1], T[0][0], T[0][1], T[1][0], T[1][1], *x])
         )
         return Case(which, line, lambda: run_v_push(P=P, T=T, x=x))
     if which == "DEC":
-        A = [[scalar(rng), scalar(rng)], [scalar(rng), scalar(rng)]]
+        small = rng.random() < 0.35
+        pick = (lambda: rng.randint(-3, 3)) if small else (lambda: scalar(rng))
+        A = [[pick(), pick()], [pick(), pick()]]
         P = symmetric_pair(rng)
-        x = [scalar(rng), scalar(rng)]
+        x = [pick(), pick()]
         line = "DEC " + " ".join(
             map(str, [A[0][0], A[0][1], A[1][0], A[1][1], P[0][0], P[0][1], P[1][0], P[1][1], *x])
         )
@@ -247,12 +278,42 @@ def main() -> int:
         else:
             agreed[case.op] = agreed.get(case.op, 0) + 1
 
+    # What did the run actually reach? A harness that never generates a
+    # refusal is not checking agreement on it, however many kinds its table
+    # declares. Report the reach, and fail if a comparable kind is missing.
+    reached: dict[str, int] = {}
+    successes: dict[str, int] = {}
+    for case in cases:
+        answer = case.python()
+        if answer.startswith("ERR"):
+            kind = answer.split()[1]
+            reached[kind] = reached.get(kind, 0) + 1
+        else:
+            successes[case.op] = successes.get(case.op, 0) + 1
+
     print(f"{args.cases} cases, seed {args.seed}")
     for op in sorted(set(c.op for c in cases)):
         total = sum(1 for c in cases if c.op == op)
-        print(f"  {op:<7} {agreed.get(op, 0):>5}/{total:<5} agreed")
+        ok = successes.get(op, 0)
+        print(
+            f"  {op:<7} {agreed.get(op, 0):>5}/{total:<5} agreed"
+            f"   ({ok:>4} reached the success path, {100.0 * ok / total:4.1f}%)"
+        )
+    missing = sorted(COMPARABLE_KINDS - set(reached))
+    print(f"  refusal kinds reached: {len(set(reached) & COMPARABLE_KINDS)}"
+          f"/{len(COMPARABLE_KINDS)} comparable"
+          f"  (+{len(PYTHON_ONLY_KINDS)} python-only, not differentially testable)")
+    thin = [op for op in sorted(set(c.op for c in cases))
+            if successes.get(op, 0) < max(1, sum(1 for c in cases if c.op == op) // 20)]
+    if missing or thin:
+        if missing:
+            print(f"\n  NEVER GENERATED, so agreement on them is untested: {missing}")
+        if thin:
+            print(f"\n  under 5% of draws reached the success path for: {thin}")
+            print("  agreement on a computed value is the thing this exists to check")
+        return 1
     if not divergences:
-        print("\nthe twins agree on every case")
+        print("\nthe twins agree on every case, and reached every kind they compare")
         return 0
 
     print(f"\n{len(divergences)} DIVERGENCES -- a disagreement is a refuse, not a repair:\n")
